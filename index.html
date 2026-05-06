@@ -1,0 +1,2151 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Conexa Pontos</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: #00875A;
+      --primary-dark: #006644;
+      --primary-light: #E3FCEF;
+      --bg: #F4F5F7;
+      --white: #FFFFFF;
+      --sidebar: #1E1E2E;
+      --border: #DFE1E6;
+      --text: #172B4D;
+      --muted: #6B778C;
+      --success: #00875A;
+      --danger: #DE350B;
+      --warning: #FF991F;
+      --info: #0065FF;
+      --shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08);
+      --shadow-lg: 0 4px 16px rgba(0,0,0,0.12);
+      --radius: 8px;
+      --sidebar-width: 240px;
+    }
+
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* ── LOGIN ── */
+    #login-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, var(--primary-dark) 0%, #0a2e1a 100%); }
+    .login-box { background: var(--white); border-radius: 12px; padding: 48px 40px; width: 100%; max-width: 400px; box-shadow: var(--shadow-lg); }
+    .login-logo { text-align: center; margin-bottom: 32px; }
+    .login-logo .star { font-size: 40px; margin-bottom: 8px; }
+    .login-logo h1 { font-size: 24px; font-weight: 700; color: var(--primary); }
+    .login-logo p { font-size: 14px; color: var(--muted); margin-top: 4px; }
+    .login-hint { text-align: center; font-size: 13px; color: var(--muted); margin-top: 20px; }
+
+    /* ── FORM ── */
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%; padding: 9px 12px; border: 2px solid var(--border);
+      border-radius: var(--radius); font-size: 14px; color: var(--text);
+      background: var(--white); transition: border-color 0.15s; outline: none;
+    }
+    .form-group input:focus, .form-group select:focus { border-color: var(--primary); }
+    .form-group small { font-size: 12px; color: var(--muted); margin-top: 4px; display: block; }
+
+    /* ── BUTTONS ── */
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 16px; border-radius: var(--radius); font-size: 14px; font-weight: 500; cursor: pointer; border: none; transition: all 0.15s; text-decoration: none; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn-ghost { background: transparent; color: var(--text); border: 2px solid var(--border); }
+    .btn-ghost:hover { border-color: var(--primary); color: var(--primary); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-danger:hover { background: #bf2600; }
+    .btn-full { width: 100%; }
+    .btn-sm { padding: 6px 12px; font-size: 13px; }
+
+    /* ── APP SHELL ── */
+    #app { display: none; min-height: 100vh; }
+    #sidebar {
+      position: fixed; left: 0; top: 0; bottom: 0; width: var(--sidebar-width);
+      background: var(--sidebar); display: flex; flex-direction: column; z-index: 100;
+    }
+    .sidebar-brand { padding: 20px 16px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .sidebar-brand h2 { font-size: 17px; font-weight: 700; color: #fff; }
+    .sidebar-brand p { font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+    .sidebar-nav { flex: 1; padding: 12px 8px; overflow-y: auto; }
+    .nav-label { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.3); padding: 8px 8px 4px; margin-top: 8px; }
+    .nav-link {
+      display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: var(--radius);
+      color: rgba(255,255,255,0.6); font-size: 14px; cursor: pointer; margin-bottom: 2px;
+      transition: all 0.15s; user-select: none;
+    }
+    .nav-link:hover { background: rgba(255,255,255,0.07); color: #fff; }
+    .nav-link.active { background: var(--primary); color: #fff; }
+    .nav-link .icon { font-size: 17px; flex-shrink: 0; }
+    .sidebar-footer { padding: 12px 8px; border-top: 1px solid rgba(255,255,255,0.08); }
+    .user-chip { display: flex; align-items: center; gap: 10px; padding: 8px; }
+    .user-ava { width: 34px; height: 34px; border-radius: 50%; background: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #fff; flex-shrink: 0; }
+    .user-name { font-size: 13px; font-weight: 500; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .user-role { font-size: 11px; color: rgba(255,255,255,0.4); }
+    .btn-signout { width: 100%; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.6); border: none; padding: 8px 12px; border-radius: var(--radius); font-size: 13px; cursor: pointer; margin-top: 6px; transition: all 0.15s; }
+    .btn-signout:hover { background: rgba(255,255,255,0.12); color: #fff; }
+
+    /* ── MAIN ── */
+    #main { margin-left: var(--sidebar-width); padding: 28px 32px; }
+    .page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+    .page-title { font-size: 22px; font-weight: 700; color: var(--text); }
+    .page-subtitle { font-size: 14px; color: var(--muted); margin-top: 3px; }
+
+    /* ── VIEWS ── */
+    .view { display: none; }
+    .view.active { display: block; }
+
+    /* ── CARDS ── */
+    .card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; }
+    .card-title { font-size: 15px; font-weight: 600; margin-bottom: 16px; }
+
+    /* ── BALANCE HERO ── */
+    .balance-hero {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      border-radius: 12px; padding: 28px 32px; margin-bottom: 24px; color: #fff;
+      position: relative; overflow: hidden;
+    }
+    .balance-hero::after { content: '⭐'; position: absolute; right: 24px; top: 50%; transform: translateY(-50%) scale(4); opacity: 0.08; font-size: 40px; }
+    .balance-hero-label { font-size: 13px; opacity: 0.8; margin-bottom: 6px; }
+    .balance-hero-value { font-size: 52px; font-weight: 700; line-height: 1; }
+    .balance-hero-value span { font-size: 22px; font-weight: 400; opacity: 0.7; margin-left: 4px; }
+    .balance-hero-name { font-size: 16px; opacity: 0.85; margin-top: 8px; }
+
+    /* ── STAT CARDS ── */
+    .stats-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .stat-card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; }
+    .stat-icon { font-size: 28px; margin-bottom: 10px; }
+    .stat-label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .stat-value { font-size: 28px; font-weight: 700; color: var(--primary); margin-top: 4px; }
+
+    /* ── TABLE ── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    thead th { padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); border-bottom: 2px solid var(--border); white-space: nowrap; }
+    tbody td { padding: 13px 14px; border-bottom: 1px solid var(--border); color: var(--text); }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: #f8f9fa; }
+
+    /* ── BADGES ── */
+    .badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+    .badge-green { background: #E3FCEF; color: #006644; }
+    .badge-blue { background: #DEEBFF; color: #0052CC; }
+    .badge-yellow { background: #FFFAE6; color: #974F0C; }
+    .badge-red { background: #FFEBE6; color: #BF2600; }
+    .badge-gray { background: #F4F5F7; color: #42526E; }
+
+    /* ── CATALOG GRID ── */
+    .catalog-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 18px; }
+    .product-card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; transition: transform 0.15s, box-shadow 0.15s; }
+    .product-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+    .product-thumb { width: 100%; height: 150px; background: var(--primary-light); display: flex; align-items: center; justify-content: center; font-size: 50px; overflow: hidden; }
+    .product-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .product-body { padding: 14px; }
+    .product-name { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+    .product-desc { font-size: 13px; color: var(--muted); margin-bottom: 12px; line-height: 1.4; min-height: 36px; }
+    .product-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .pts-tag { background: var(--primary-light); color: var(--primary-dark); font-size: 13px; font-weight: 700; padding: 4px 10px; border-radius: 20px; white-space: nowrap; }
+
+    /* ── INLINE BAL ── */
+    .inline-bal { background: var(--primary-light); color: var(--primary-dark); border-radius: var(--radius); padding: 10px 18px; text-align: center; }
+    .inline-bal small { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; display: block; }
+    .inline-bal strong { font-size: 20px; display: block; margin-top: 2px; }
+
+    /* ── MODAL ── */
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 500; display: none; align-items: center; justify-content: center; padding: 16px; }
+    .overlay.open { display: flex; }
+    .modal { background: var(--white); border-radius: 12px; padding: 28px; width: 100%; max-width: 460px; box-shadow: var(--shadow-lg); max-height: 90vh; overflow-y: auto; }
+    .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 18px; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 22px; }
+
+    /* ── TOAST ── */
+    #toasts { position: fixed; top: 20px; right: 20px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
+    .toast { background: var(--sidebar); color: #fff; padding: 12px 18px; border-radius: var(--radius); font-size: 14px; box-shadow: var(--shadow-lg); animation: toastIn 0.25s ease; max-width: 320px; border-left: 4px solid var(--primary); }
+    .toast.err { border-left-color: var(--danger); }
+    .toast.warn { border-left-color: var(--warning); }
+    @keyframes toastIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+    /* ── LOADING / EMPTY ── */
+    .center-msg { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 20px; color: var(--muted); gap: 12px; }
+    .center-msg .big-icon { font-size: 44px; }
+    .center-msg p { font-size: 15px; }
+    .spinner { width: 22px; height: 22px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── MISC ── */
+    .txt-green { color: var(--success); font-weight: 600; }
+    .txt-red { color: var(--danger); font-weight: 600; }
+    .txt-muted { color: var(--muted); font-size: 13px; }
+    .avatar-sm { width: 32px; height: 32px; border-radius: 50%; background: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0; }
+    .flex { display: flex; }
+    .items-center { align-items: center; }
+    .gap-2 { gap: 8px; }
+    .gap-3 { gap: 12px; }
+    .mt-1 { margin-top: 4px; }
+    .mt-3 { margin-top: 12px; }
+    .search-box { padding: 8px 14px; border: 2px solid var(--border); border-radius: var(--radius); font-size: 14px; outline: none; min-width: 220px; }
+    .search-box:focus { border-color: var(--primary); }
+    .divider { height: 1px; background: var(--border); margin: 16px 0; }
+    .highlight-box { background: var(--primary-light); border-radius: var(--radius); padding: 14px 18px; margin: 14px 0; text-align: center; }
+    .highlight-box strong { font-size: 17px; color: var(--primary-dark); display: block; }
+    .highlight-box small { color: var(--primary); font-size: 13px; }
+
+    @media (max-width: 768px) {
+      #sidebar { width: 100%; height: auto; position: relative; flex-direction: row; flex-wrap: wrap; }
+      #main { margin-left: 0; padding: 16px; }
+    }
+
+    /* ── MODAL LARGE ── */
+    .modal-lg { max-width: 700px; }
+
+    /* ── POLICY PAGE ── */
+    .policy-content { max-width: 820px; }
+    .policy-section { margin-bottom: 28px; }
+    .policy-section h3 { font-size: 16px; font-weight: 700; color: var(--primary-dark); margin-bottom: 10px; padding-bottom: 6px; border-bottom: 2px solid var(--primary-light); }
+    .policy-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+    .policy-table th { background: var(--primary); color: #fff; padding: 8px 12px; text-align: left; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+    .policy-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .policy-table tr:nth-child(even) td { background: var(--bg); }
+    .policy-pill { display: inline-block; background: var(--primary-light); color: var(--primary-dark); border-radius: 20px; padding: 2px 10px; font-size: 12px; font-weight: 600; }
+    .rule-list { list-style: none; padding: 0; }
+    .rule-list li { padding: 6px 0 6px 22px; position: relative; border-bottom: 1px solid var(--border); font-size: 14px; }
+    .rule-list li::before { content: '•'; position: absolute; left: 6px; color: var(--primary); font-weight: 700; }
+    .rule-list li:last-child { border-bottom: none; }
+
+    /* ── REPORTS ── */
+    .rank-badge { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; font-size: 13px; font-weight: 700; }
+    .rank-1 { background: #FFD700; color: #7a5800; }
+    .rank-2 { background: #C0C0C0; color: #444; }
+    .rank-3 { background: #CD7F32; color: #fff; }
+    .rank-other { background: var(--bg); color: var(--muted); }
+
+    /* ── IMPORT ── */
+    .import-preview { max-height: 260px; overflow-y: auto; margin: 10px 0; border: 1px solid var(--border); border-radius: var(--radius); }
+    .import-progress { background: var(--primary-light); border-radius: var(--radius); padding: 10px 14px; margin: 10px 0; font-size: 13px; color: var(--primary-dark); }
+    .import-err { background: #ffebe6; color: var(--danger); border-radius: var(--radius); padding: 10px 14px; margin: 10px 0; font-size: 13px; }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════ TOASTS ════════════════ -->
+<div id="toasts"></div>
+
+<!-- ════════════════ MODAL ════════════════ -->
+<div class="overlay" id="overlay" onclick="maybeCloseModal(event)">
+  <div class="modal" id="modalBox"></div>
+</div>
+
+<!-- ════════════════ LOGIN ════════════════ -->
+<div id="login-page">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="star">⭐</div>
+      <h1>Conexa Pontos</h1>
+      <p>Plataforma de Reconhecimento e Recompensas</p>
+    </div>
+    <form id="loginForm">
+      <div class="form-group">
+        <label>E-mail</label>
+        <input type="email" id="fEmail" placeholder="seu@email.com" required autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label>Senha</label>
+        <input type="password" id="fPass" placeholder="••••••••" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn btn-primary btn-full" id="btnLogin">Entrar</button>
+    </form>
+    <div id="loginBanner" style="display:none; margin-top:16px; padding:12px 16px; border-radius:8px; font-size:14px; line-height:1.5;"></div>
+    <p class="login-hint">Problemas de acesso? Fale com o RH.</p>
+  </div>
+</div>
+
+<!-- ════════════════ SET PASSWORD (shown after accepting invite) ════════════════ -->
+<div id="setpass-page" style="display:none; position:fixed; inset:0; background:linear-gradient(135deg,#006644 0%,#0a2e1a 100%); z-index:9999; align-items:center; justify-content:center;">
+  <div class="login-box" style="max-width:420px;">
+    <div class="login-logo">
+      <div class="star">🔑</div>
+      <h1>Criar Senha</h1>
+      <p>Bem-vindo! Defina sua senha para continuar.</p>
+    </div>
+    <form id="setPassForm">
+      <div class="form-group">
+        <label>Nova Senha</label>
+        <input type="password" id="spPass" placeholder="Mínimo 8 caracteres" required minlength="8" autocomplete="new-password">
+      </div>
+      <div class="form-group">
+        <label>Confirmar Senha</label>
+        <input type="password" id="spPass2" placeholder="Repita a senha" required autocomplete="new-password">
+      </div>
+      <button type="submit" class="btn btn-primary btn-full" id="btnSetPass">Salvar Senha e Entrar</button>
+    </form>
+  </div>
+</div>
+
+<!-- ════════════════ APP ════════════════ -->
+<div id="app">
+
+  <!-- SIDEBAR -->
+  <aside id="sidebar">
+    <div class="sidebar-brand">
+      <h2>⭐ Conexa Pontos</h2>
+      <p>Reconhecimento & Recompensas</p>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-label">Menu Principal</div>
+      <div class="nav-link active" data-view="home" onclick="goTo('home')">
+        <span class="icon">🏠</span> Início
+      </div>
+      <div class="nav-link" data-view="catalog" onclick="goTo('catalog')">
+        <span class="icon">🎁</span> Catálogo de Prêmios
+      </div>
+      <div class="nav-link" data-view="myorders" onclick="goTo('myorders')">
+        <span class="icon">📦</span> Meus Resgates
+      </div>
+      <div class="nav-link" data-view="policy" onclick="goTo('policy')">
+        <span class="icon">📄</span> Política do Programa
+      </div>
+
+      <div id="adminNav" style="display:none">
+        <div class="nav-label">Administração</div>
+        <div class="nav-link" data-view="emp" onclick="goTo('emp')">
+          <span class="icon">👥</span> Funcionários
+        </div>
+        <div class="nav-link" data-view="admcat" onclick="goTo('admcat')">
+          <span class="icon">📝</span> Gerenciar Catálogo
+        </div>
+        <div class="nav-link" data-view="admred" onclick="goTo('admred')">
+          <span class="icon">📋</span> Pedidos de Resgate
+        </div>
+        <div class="nav-link" data-view="reports" onclick="goTo('reports')">
+          <span class="icon">📊</span> Relatórios
+        </div>
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-chip">
+        <div class="user-ava" id="uAva">?</div>
+        <div>
+          <div class="user-name" id="uName">Carregando…</div>
+          <div class="user-role" id="uRole"></div>
+        </div>
+      </div>
+      <button class="btn-signout" onclick="doSignOut()">🚪 Sair</button>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main id="main">
+
+    <!-- ── VIEW: HOME ── -->
+    <div class="view active" id="view-home">
+      <div class="page-header">
+        <div>
+          <div class="page-title" id="homeTitle">Início</div>
+          <div class="page-subtitle">Bem-vindo à plataforma de reconhecimento Conexa Saúde</div>
+        </div>
+      </div>
+      <!-- Employee balance hero -->
+      <div class="balance-hero" id="balHero">
+        <div class="balance-hero-label">⭐ Seu saldo de pontos</div>
+        <div class="balance-hero-value"><span id="balAmt">0</span><span>pts</span></div>
+        <div class="balance-hero-name" id="balName"></div>
+      </div>
+      <!-- Admin stats -->
+      <div class="stats-row" id="adminStats" style="display:none">
+        <div class="stat-card"><div class="stat-icon">👥</div><div class="stat-label">Funcionários</div><div class="stat-value" id="st1">—</div></div>
+        <div class="stat-card"><div class="stat-icon">⭐</div><div class="stat-label">Pontos Distribuídos</div><div class="stat-value" id="st2">—</div></div>
+        <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-label">Resgates Pendentes</div><div class="stat-value" id="st3">—</div></div>
+        <div class="stat-card"><div class="stat-icon">🎁</div><div class="stat-label">Prêmios no Catálogo</div><div class="stat-value" id="st4">—</div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">📊 Últimas Movimentações</div>
+        <div id="recentTx"><div class="center-msg"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+    <!-- ── VIEW: CATALOG ── -->
+    <div class="view" id="view-catalog">
+      <div class="page-header">
+        <div>
+          <div class="page-title">🎁 Catálogo de Prêmios</div>
+          <div class="page-subtitle">Troque seus pontos por recompensas incríveis!</div>
+        </div>
+        <div class="inline-bal"><small>Seu Saldo</small><strong><span id="catBal">0</span> pts</strong></div>
+      </div>
+      <div class="catalog-grid" id="catalogGrid">
+        <div class="center-msg"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+    <!-- ── VIEW: MY ORDERS ── -->
+    <div class="view" id="view-myorders">
+      <div class="page-header">
+        <div>
+          <div class="page-title">📦 Meus Resgates</div>
+          <div class="page-subtitle">Histórico de todos os seus resgates</div>
+        </div>
+      </div>
+      <div class="card">
+        <div id="myOrdersWrap"><div class="center-msg"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+    <!-- ── VIEW: ADMIN EMPLOYEES ── -->
+    <div class="view" id="view-emp">
+      <div class="page-header">
+        <div>
+          <div class="page-title">👥 Funcionários</div>
+          <div class="page-subtitle">Gerencie colaboradores e pontos</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost" onclick="openImportPointsModal()">📥 Importar Pontos</button>
+          <button class="btn btn-ghost" onclick="openImportEmpsModal()">📥 Importar Funcionários</button>
+          <button class="btn btn-primary" onclick="openNewEmpModal()">+ Novo Funcionário</button>
+        </div>
+      </div>
+      <div class="card">
+        <div style="margin-bottom:16px; display:flex; gap:12px; flex-wrap:wrap; align-items:center; justify-content:space-between;">
+          <input class="search-box" id="empSearch" placeholder="🔍 Buscar por nome, e-mail ou setor…" oninput="filterEmps()">
+        </div>
+        <div id="empTableWrap"><div class="center-msg"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+    <!-- ── VIEW: ADMIN CATALOG ── -->
+    <div class="view" id="view-admcat">
+      <div class="page-header">
+        <div>
+          <div class="page-title">📝 Gerenciar Catálogo</div>
+          <div class="page-subtitle">Adicione e edite os prêmios disponíveis</div>
+        </div>
+        <button class="btn btn-primary" onclick="openNewProductModal()">+ Novo Prêmio</button>
+      </div>
+      <div class="catalog-grid" id="admCatGrid">
+        <div class="center-msg"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+    <!-- ── VIEW: ADMIN REDEMPTIONS ── -->
+    <div class="view" id="view-admred">
+      <div class="page-header">
+        <div>
+          <div class="page-title">📋 Pedidos de Resgate</div>
+          <div class="page-subtitle">Gerencie e confirme as entregas dos prêmios</div>
+        </div>
+      </div>
+      <div class="card">
+        <div id="admRedWrap"><div class="center-msg"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+    <!-- ── VIEW: POLICY ── -->
+    <div class="view" id="view-policy">
+      <div class="page-header">
+        <div>
+          <div class="page-title">📄 Política do Programa</div>
+          <div class="page-subtitle">Programa Conexa Reconhece — Reconhecimento e Recompensas</div>
+        </div>
+      </div>
+      <div class="policy-content" id="policyContent">
+        <div class="center-msg"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+    <!-- ── VIEW: REPORTS ── -->
+    <div class="view" id="view-reports">
+      <div class="page-header">
+        <div>
+          <div class="page-title">📊 Relatórios</div>
+          <div class="page-subtitle">Acompanhe o desempenho e uso do programa</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost" onclick="loadReports()">🔄 Atualizar</button>
+          <button class="btn btn-primary" id="btnExportReport" onclick="exportReports()" style="display:none">📥 Exportar Excel</button>
+        </div>
+      </div>
+      <div id="reportsContent"><div class="center-msg"><div class="spinner"></div></div></div>
+    </div>
+
+  </main>
+</div><!-- /app -->
+
+<script>
+// ═══════════════════════════════════════════════
+// ⚙️  CONFIGURAÇÃO — PREENCHA APÓS O SETUP
+// ═══════════════════════════════════════════════
+const CFG = {
+  supabaseUrl:       'https://zxkqhtrizsogcowxywpp.supabase.co',
+  supabaseAnonKey:   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp4a3FodHJpenNvZ2Nvd3h5d3BwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1NjAyNjMsImV4cCI6MjA5MzEzNjI2M30.de3y65fSZfGR5J2vntw4C8bAJqgj0yXblGcCnm42fEo',
+  edgeFnBaseUrl:     'https://zxkqhtrizsogcowxywpp.supabase.co/functions/v1',
+  adminEmail:        'felipe.mendes@conexasaude.com.br',
+  emailjsPublicKey:  'SIiUTLAn87CIZLCaR',
+  emailjsServiceId:  'service_phedqwk',
+  emailjsTemplateId: 'template_0bs2228',
+};
+
+// ═══════════════════════════════════════════════
+// GLOBALS
+// ═══════════════════════════════════════════════
+let sb, curUser, curProfile, allEmps = [];
+
+// ═══════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', async () => {
+  sb = supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey);
+  if (window.emailjs) emailjs.init(CFG.emailjsPublicKey);
+
+  // ── Detecta parâmetros no hash da URL (retorno do Supabase Auth) ──
+  const rawHash = window.location.hash;
+  const hashParams = new URLSearchParams(rawHash.replace(/^#/, ''));
+  const urlError      = hashParams.get('error_code') || hashParams.get('error');
+  const urlType       = hashParams.get('type');
+  const urlTokenHash  = hashParams.get('token');  // token_hash (formato seguro anti-scanner)
+
+  // Limpa o hash da barra de endereços para não reprocessar
+  if (rawHash) history.replaceState(null, '', window.location.pathname);
+
+  // ── Caso 1: Erro no link (ex: link antigo/expirado) ──
+  if (urlError) {
+    showLogin();
+    showLoginBanner(
+      '⏰ O link de convite expirou ou é inválido.<br>Peça ao RH para reenviar o convite.',
+      'err'
+    );
+    return;
+  }
+
+  // ── Caso 2: Novo formato de convite com token_hash ──
+  // URL: https://conexa-pontos.netlify.app/#token=TOKEN&type=invite
+  // Vantagem: scanners de e-mail corporativo NÃO conseguem consumir este token
+  if (urlTokenHash && (urlType === 'invite' || urlType === 'recovery')) {
+    showLogin(); // mostra tela enquanto verifica
+    const { data, error } = await sb.auth.verifyOtp({
+      token_hash: urlTokenHash,
+      type: urlType,
+    });
+    if (error) {
+      showLoginBanner(
+        '⏰ O link de convite expirou ou já foi utilizado.<br>Peça ao RH para reenviar o convite.',
+        'err'
+      );
+    } else if (data?.user) {
+      showSetPassPage(data.user);
+    }
+    return;
+  }
+
+  // ── Caso 3: Sessão já existente (login normal) ──
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    await bootUser(session.user);
+  } else {
+    showLogin();
+  }
+
+  sb.auth.onAuthStateChange(async (ev, sess) => {
+    if (ev === 'SIGNED_IN' && sess && !curUser) await bootUser(sess.user);
+    if (ev === 'USER_UPDATED' && sess && curUser === null) await bootUser(sess.user);
+    if (ev === 'SIGNED_OUT') { curUser = null; curProfile = null; showLogin(); }
+  });
+});
+
+async function bootUser(user) {
+  const { data: p, error } = await sb.from('profiles')
+    .select('*').eq('auth_user_id', user.id).single();
+  if (error || !p) { toast('Perfil não encontrado. Fale com o RH.', 'err'); await sb.auth.signOut(); return; }
+  if (p.is_active === false) {
+    toast('Seu acesso foi desativado. Entre em contato com o RH.', 'err');
+    await sb.auth.signOut();
+    return;
+  }
+  curUser = user;
+  curProfile = p;
+  document.getElementById('uAva').textContent = p.name.charAt(0).toUpperCase();
+  document.getElementById('uName').textContent = p.name;
+  document.getElementById('uRole').textContent = p.role === 'admin' ? '🔑 Administrador' : '👤 Colaborador';
+  if (p.role === 'admin') document.getElementById('adminNav').style.display = 'block';
+  document.getElementById('login-page').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  goTo('home');
+}
+
+function showLogin() {
+  document.getElementById('login-page').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('setpass-page').style.display = 'none';
+}
+
+function showLoginBanner(msg, type) {
+  const b = document.getElementById('loginBanner');
+  b.innerHTML = msg;
+  b.style.display = 'block';
+  if (type === 'err') {
+    b.style.background = '#FFF0ED'; b.style.color = '#BF2600'; b.style.border = '1px solid #FF8F73';
+  } else {
+    b.style.background = '#E3FCEF'; b.style.color = '#006644'; b.style.border = '1px solid #57D9A3';
+  }
+}
+
+function showSetPassPage(user) {
+  document.getElementById('login-page').style.display = 'none';
+  document.getElementById('app').style.display = 'none';
+  const sp = document.getElementById('setpass-page');
+  sp.style.display = 'flex';
+}
+
+document.getElementById('setPassForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const pass  = document.getElementById('spPass').value;
+  const pass2 = document.getElementById('spPass2').value;
+  const btn   = document.getElementById('btnSetPass');
+
+  if (pass !== pass2) { toast('As senhas não coincidem.', 'err'); return; }
+  if (pass.length < 8) { toast('A senha deve ter pelo menos 8 caracteres.', 'err'); return; }
+
+  btn.disabled = true; btn.textContent = 'Salvando…';
+  const { error } = await sb.auth.updateUser({ password: pass });
+  if (error) {
+    toast('Erro ao salvar senha: ' + error.message, 'err');
+    btn.disabled = false; btn.textContent = 'Salvar Senha e Entrar';
+    return;
+  }
+  // Senha definida → carregar perfil e entrar
+  const { data: { user } } = await sb.auth.getUser();
+  document.getElementById('setpass-page').style.display = 'none';
+  await bootUser(user);
+});
+
+// ═══════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════
+document.getElementById('loginForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = document.getElementById('btnLogin');
+  btn.disabled = true; btn.textContent = 'Entrando…';
+  const { error } = await sb.auth.signInWithPassword({
+    email: document.getElementById('fEmail').value.trim(),
+    password: document.getElementById('fPass').value
+  });
+  if (error) { toast('E-mail ou senha incorretos.', 'err'); btn.disabled = false; btn.textContent = 'Entrar'; }
+});
+
+async function doSignOut() {
+  await sb.auth.signOut();
+}
+
+// ═══════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════
+async function goTo(view) {
+  document.querySelectorAll('.nav-link').forEach(n => n.classList.toggle('active', n.dataset.view === view));
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  const el = document.getElementById('view-' + view);
+  if (el) el.classList.add('active');
+  await loadView(view);
+}
+
+async function loadView(v) {
+  if (v === 'home')     return loadHome();
+  if (v === 'catalog')  return loadCatalog();
+  if (v === 'myorders') return loadMyOrders();
+  if (v === 'policy')   return loadPolicy();
+  if (v === 'emp')      return loadEmps();
+  if (v === 'admcat')   return loadAdmCat();
+  if (v === 'admred')   return loadAdmRed();
+  if (v === 'reports')  return loadReports();
+}
+
+// ═══════════════════════════════════════════════
+// HOME
+// ═══════════════════════════════════════════════
+async function loadHome() {
+  // Saldo sempre visível para todos (inclusive admin)
+  document.getElementById('balHero').style.display = 'block';
+  document.getElementById('balAmt').textContent = fPts(curProfile.points_balance);
+  document.getElementById('balName').textContent = `Olá, ${curProfile.name}! 👋`;
+
+  if (curProfile.role === 'admin') {
+    document.getElementById('adminStats').style.display = 'grid';
+    loadAdminStats();
+  } else {
+    document.getElementById('adminStats').style.display = 'none';
+  }
+  loadRecentTx();
+}
+
+async function loadAdminStats() {
+  const [emps, txs, pend, prods] = await Promise.all([
+    sb.from('profiles').select('id', { count: 'exact' }).eq('role', 'employee'),
+    sb.from('point_transactions').select('points').gt('points', 0),
+    sb.from('redemptions').select('id', { count: 'exact' }).eq('status', 'pending'),
+    sb.from('products').select('id', { count: 'exact' }).eq('is_active', true),
+  ]);
+  document.getElementById('st1').textContent = emps.count ?? 0;
+  document.getElementById('st2').textContent = fPts((txs.data || []).reduce((s, t) => s + t.points, 0));
+  document.getElementById('st3').textContent = pend.count ?? 0;
+  document.getElementById('st4').textContent = prods.count ?? 0;
+}
+
+async function loadRecentTx() {
+  const el = document.getElementById('recentTx');
+  let q = sb.from('point_transactions')
+    .select('*, profiles!point_transactions_employee_id_fkey(name)')
+    .order('created_at', { ascending: false }).limit(15);
+  if (curProfile.role !== 'admin') q = q.eq('employee_id', curProfile.id);
+  const { data } = await q;
+  if (!data || data.length === 0) {
+    el.innerHTML = html_empty('📊', 'Nenhuma movimentação ainda');
+    return;
+  }
+  el.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr>
+      ${curProfile.role === 'admin' ? '<th>Funcionário</th>' : ''}
+      <th>Descrição</th><th>Pontos</th><th>Data</th>
+    </tr></thead><tbody>
+    ${data.map(t => `<tr>
+      ${curProfile.role === 'admin' ? `<td>${t.profiles?.name || '—'}</td>` : ''}
+      <td>${t.description || '—'}</td>
+      <td class="${t.points > 0 ? 'txt-green' : 'txt-red'}">${t.points > 0 ? '+' : ''}${fPts(t.points)} pts</td>
+      <td class="txt-muted">${fDate(t.created_at)}</td>
+    </tr>`).join('')}
+    </tbody></table></div>`;
+}
+
+// ═══════════════════════════════════════════════
+// CATALOG
+// ═══════════════════════════════════════════════
+async function loadCatalog() {
+  document.getElementById('catBal').textContent = fPts(curProfile.points_balance);
+  const grid = document.getElementById('catalogGrid');
+  grid.innerHTML = `<div class="center-msg"><div class="spinner"></div></div>`;
+  const { data } = await sb.from('products').select('*').eq('is_active', true).order('points_cost');
+  if (!data || data.length === 0) { grid.innerHTML = html_empty('🎁', 'Nenhum prêmio disponível no momento'); return; }
+  grid.innerHTML = data.map(p => productCard(p, true)).join('');
+}
+
+function productCard(p, withRedeem) {
+  const canAfford  = curProfile.points_balance >= p.points_cost;
+  const outOfStock = p.stock_quantity !== null && p.stock_quantity !== undefined && p.stock_quantity <= 0;
+  const imgHtml = p.image_url
+    ? `<img src="${escHtml(p.image_url)}" alt="${escHtml(p.name)}" onerror="this.style.display='none'; this.parentElement.innerHTML='🎁'">`
+    : '🎁';
+  let btn = '';
+  if (withRedeem) {
+    if (outOfStock) {
+      btn = `<button class="btn btn-ghost btn-sm" disabled style="opacity:.5;cursor:not-allowed">🚫 Indisponível</button>`;
+    } else if (!canAfford) {
+      btn = `<button class="btn btn-ghost btn-sm" disabled style="opacity:.45;cursor:not-allowed">Saldo insuf.</button>`;
+    } else {
+      btn = `<button class="btn btn-primary btn-sm" onclick="startRedeem('${p.id}','${escJs(p.name)}',${p.points_cost},${p.stock_quantity ?? 'null'})">Resgatar</button>`;
+    }
+  }
+  return `<div class="product-card" style="${outOfStock ? 'opacity:.65' : ''}">
+    <div class="product-thumb">${imgHtml}${outOfStock ? '<div style="position:absolute;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;border-radius:8px 8px 0 0;font-size:13px;font-weight:700;color:#fff">ESGOTADO</div>' : ''}</div>
+    <div class="product-body">
+      <div class="product-name">${escHtml(p.name)}</div>
+      <div class="product-desc">${escHtml(p.description || '')}</div>
+      ${p.delivery_days != null ? `<div style="font-size:12px;color:var(--muted);margin-bottom:8px">⏱️ Prazo de entrega: ${p.delivery_days === 0 ? 'Imediato' : p.delivery_days + ' dia' + (p.delivery_days !== 1 ? 's úteis' : ' útil')}</div>` : ''}
+      <div class="product-footer">
+        <span class="pts-tag">⭐ ${fPts(p.points_cost)} pts</span>
+        ${btn}
+      </div>
+    </div>
+  </div>`;
+}
+
+function startRedeem(pid, pname, cost, stock) {
+  openModal(`<div class="modal-title">🎁 Confirmar Resgate</div>
+    <p>Você vai resgatar:</p>
+    <div class="highlight-box"><strong>${escHtml(pname)}</strong><small>⭐ ${fPts(cost)} pontos</small></div>
+    <p>Saldo atual: <strong>${fPts(curProfile.points_balance)} pts</strong></p>
+    <p class="mt-1">Saldo após resgate: <strong>${fPts(curProfile.points_balance - cost)} pts</strong></p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmRedeem('${pid}','${escJs(pname)}',${cost},${stock})">✅ Confirmar</button>
+    </div>`);
+}
+
+async function confirmRedeem(pid, pname, cost, stock) {
+  closeModal();
+  // Verifica estoque novamente antes de confirmar (segurança)
+  const { data: prod } = await sb.from('products').select('stock_quantity').eq('id', pid).single();
+  if (prod && prod.stock_quantity !== null && prod.stock_quantity <= 0) {
+    toast('Este prêmio acabou de esgotar. Escolha outro! 😔', 'err');
+    loadCatalog();
+    return;
+  }
+  // Cria registro de resgate
+  const { error: re } = await sb.from('redemptions').insert({
+    employee_id: curProfile.id, product_id: pid, points_spent: cost, status: 'pending'
+  });
+  if (re) { toast('Erro ao processar resgate.', 'err'); return; }
+  // Debita pontos
+  const newBal = curProfile.points_balance - cost;
+  await sb.from('profiles').update({ points_balance: newBal }).eq('id', curProfile.id);
+  await sb.from('point_transactions').insert({
+    employee_id: curProfile.id, points: -cost,
+    description: `Resgate: ${pname}`, type: 'redemption'
+  });
+  // Decrementa estoque se não for ilimitado
+  if (prod && prod.stock_quantity !== null) {
+    await sb.from('products').update({ stock_quantity: prod.stock_quantity - 1 }).eq('id', pid);
+  }
+  curProfile.points_balance = newBal;
+  sendRedeemEmail(pname, cost);
+  toast(`✅ "${pname}" resgatado! O RH vai entrar em contato.`);
+  loadCatalog();
+}
+
+// ═══════════════════════════════════════════════
+// MY ORDERS
+// ═══════════════════════════════════════════════
+async function loadMyOrders() {
+  const el = document.getElementById('myOrdersWrap');
+  const { data } = await sb.from('redemptions')
+    .select('*, products(name)')
+    .eq('employee_id', curProfile.id)
+    .order('created_at', { ascending: false });
+  if (!data || data.length === 0) { el.innerHTML = html_empty('📦', 'Você ainda não fez nenhum resgate'); return; }
+  el.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr><th>Prêmio</th><th>Pontos</th><th>Status</th><th>Data</th></tr></thead>
+    <tbody>${data.map(r => `<tr>
+      <td><strong>${r.products?.name || '—'}</strong></td>
+      <td class="txt-red">-${fPts(r.points_spent)} pts</td>
+      <td>${statusBadge(r.status)}</td>
+      <td class="txt-muted">${fDate(r.created_at)}</td>
+    </tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
+// ═══════════════════════════════════════════════
+// ADMIN — EMPLOYEES
+// ═══════════════════════════════════════════════
+async function loadEmps() {
+  const el = document.getElementById('empTableWrap');
+  const { data } = await sb.from('profiles').select('*').order('name');
+  allEmps = data || [];
+  renderEmpsTable(allEmps);
+}
+
+function filterEmps() {
+  const q = document.getElementById('empSearch').value.toLowerCase();
+  renderEmpsTable(allEmps.filter(e =>
+    e.name.toLowerCase().includes(q) ||
+    (e.email || '').toLowerCase().includes(q) ||
+    (e.department || '').toLowerCase().includes(q)
+  ));
+}
+
+function renderEmpsTable(list) {
+  const el = document.getElementById('empTableWrap');
+  if (!list || list.length === 0) { el.innerHTML = html_empty('👥', 'Nenhum funcionário encontrado'); return; }
+  el.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr><th>Nome</th><th>E-mail</th><th>Setor</th><th>Perfil</th><th>Saldo</th><th>Status</th><th>Ações</th></tr></thead>
+    <tbody>${list.map(e => {
+      const isMe = e.id === curProfile.id;
+      const ativo = e.is_active !== false;
+      return `<tr style="${!ativo ? 'opacity:0.55' : ''}">
+      <td>
+        <div class="flex items-center gap-2">
+          <div class="avatar-sm">${e.name.charAt(0).toUpperCase()}</div>
+          <strong>${escHtml(e.name)}</strong>
+        </div>
+      </td>
+      <td class="txt-muted">${escHtml(e.email || '—')}</td>
+      <td class="txt-muted">${escHtml(e.department || '—')}</td>
+      <td>${e.role === 'admin'
+        ? '<span class="badge badge-blue">🔑 Admin</span>'
+        : '<span class="badge badge-gray">👤 Colaborador</span>'}</td>
+      <td><strong style="color:var(--primary)">⭐ ${fPts(e.points_balance)} pts</strong></td>
+      <td>${ativo
+        ? '<span class="badge badge-green">✅ Ativo</span>'
+        : '<span class="badge badge-red">🚫 Inativo</span>'}</td>
+      <td>
+        <div class="flex gap-2" style="flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm" onclick="openAdjBalModal('${e.id}','${escJs(e.name)}',${e.points_balance})" ${!ativo?'disabled style="opacity:.4"':''}>⭐ Saldo</button>
+          <button class="btn btn-ghost btn-sm" onclick="openEditEmpModal('${e.id}','${escJs(e.name)}','${escJs(e.department||'')}','${e.role}')">✏️</button>
+          ${isMe ? '' : ativo
+            ? `<button class="btn btn-ghost btn-sm" style="color:var(--warning);border-color:var(--warning)" onclick="confirmToggleEmp('${e.id}','${escJs(e.name)}',false)">🚫 Desativar</button>`
+            : `<button class="btn btn-ghost btn-sm" style="color:var(--success);border-color:var(--success)" onclick="confirmToggleEmp('${e.id}','${escJs(e.name)}',true)">✅ Reativar</button>`
+          }
+          ${isMe ? '' : `<button class="btn btn-danger btn-sm" onclick="confirmDeleteEmp('${e.id}','${escJs(e.name)}')">🗑️</button>`}
+        </div>
+      </td>
+    </tr>`;
+    }).join('')}</tbody>
+  </table></div>`;
+}
+
+function confirmToggleEmp(id, name, activate) {
+  const acao = activate ? 'reativar' : 'desativar';
+  const msg  = activate
+    ? `Reativar ${escHtml(name)}? Ele(a) voltará a ter acesso ao app.`
+    : `Desativar ${escHtml(name)}? Ele(a) não conseguirá mais fazer login, mas os dados ficam salvos.`;
+  openModal(`<div class="modal-title">${activate ? '✅ Reativar' : '🚫 Desativar'} Funcionário</div>
+    <p>${msg}</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn ${activate ? 'btn-primary' : 'btn-danger'}" onclick="toggleEmpActive('${id}',${activate})">${activate ? '✅ Reativar' : '🚫 Desativar'}</button>
+    </div>`);
+}
+
+async function toggleEmpActive(id, activate) {
+  const { error } = await sb.from('profiles').update({ is_active: activate }).eq('id', id);
+  if (error) { toast('Erro ao atualizar. Tente novamente.', 'err'); return; }
+  closeModal();
+  toast(activate ? '✅ Funcionário reativado!' : '🚫 Funcionário desativado.');
+  loadEmps();
+}
+
+function confirmDeleteEmp(id, name) {
+  openModal(`<div class="modal-title">🗑️ Excluir Funcionário</div>
+    <p>Tem certeza que deseja <strong>excluir permanentemente</strong> o cadastro de <strong>${escHtml(name)}</strong>?</p>
+    <p class="txt-muted" style="margin-top:8px;font-size:13px">⚠️ Esta ação não pode ser desfeita. Todo o histórico de pontos e resgates será apagado.</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-danger" onclick="deleteEmp('${id}','${escJs(name)}')">🗑️ Excluir Definitivamente</button>
+    </div>`);
+}
+
+async function deleteEmp(id, name) {
+  const { error } = await sb.from('profiles').delete().eq('id', id);
+  if (error) { toast('Erro ao excluir. Tente novamente.', 'err'); return; }
+  closeModal();
+  toast(`🗑️ ${name} foi removido da base de dados.`);
+  loadEmps();
+}
+
+function openNewEmpModal() {
+  openModal(`<div class="modal-title">👤 Novo Funcionário</div>
+    <p class="txt-muted" style="margin-bottom:14px">O funcionário receberá um <strong>e-mail de convite</strong> para criar a própria senha. ✉️</p>
+    <div class="form-group"><label>Nome Completo *</label><input id="ne_name" type="text" placeholder="Ana Silva"></div>
+    <div class="form-group"><label>E-mail *</label><input id="ne_email" type="email" placeholder="ana@email.com"></div>
+    <div class="form-group"><label>Setor / Departamento</label><input id="ne_dept" type="text" placeholder="Ex: Tecnologia, RH, Comercial…"></div>
+    <div class="form-group"><label>Perfil</label>
+      <select id="ne_role">
+        <option value="employee">👤 Colaborador</option>
+        <option value="admin">🔑 Administrador</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="createEmp()">Enviar Convite</button>
+    </div>`);
+}
+
+async function createEmp() {
+  const name = document.getElementById('ne_name').value.trim();
+  const email = document.getElementById('ne_email').value.trim();
+  const dept = document.getElementById('ne_dept').value.trim();
+  const role = document.getElementById('ne_role').value;
+  if (!name || !email) { toast('Preencha nome e e-mail.', 'err'); return; }
+
+  // Call edge function to invite user server-side
+  const token = (await sb.auth.getSession()).data.session?.access_token;
+  const res = await fetch(`${CFG.edgeFnBaseUrl}/create-employee`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify({ name, email, department: dept, role })
+  });
+  const json = await res.json();
+  if (!res.ok || json.error) { toast(`Erro: ${json.error || 'Tente novamente'}`, 'err'); return; }
+  closeModal();
+  toast(`✅ Convite enviado para ${email}!`);
+  loadEmps();
+}
+
+function openEditEmpModal(id, name, dept, role) {
+  openModal(`<div class="modal-title">✏️ Editar Funcionário</div>
+    <div class="form-group"><label>Nome</label><input id="ee_name" value="${escHtml(name)}"></div>
+    <div class="form-group"><label>Setor</label><input id="ee_dept" value="${escHtml(dept)}"></div>
+    <div class="form-group"><label>Perfil</label>
+      <select id="ee_role">
+        <option value="employee" ${role==='employee'?'selected':''}>👤 Colaborador</option>
+        <option value="admin" ${role==='admin'?'selected':''}>🔑 Administrador</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveEmp('${id}')">Salvar</button>
+    </div>`);
+}
+
+async function saveEmp(id) {
+  const { error } = await sb.from('profiles').update({
+    name: document.getElementById('ee_name').value.trim(),
+    department: document.getElementById('ee_dept').value.trim(),
+    role: document.getElementById('ee_role').value
+  }).eq('id', id);
+  if (error) { toast('Erro ao salvar.', 'err'); return; }
+  closeModal(); toast('✅ Funcionário atualizado!');
+  loadEmps();
+}
+
+function openAdjBalModal(id, name, curBal) {
+  openModal(`<div class="modal-title">⭐ Ajustar Saldo de Pontos</div>
+    <p>Funcionário: <strong>${escHtml(name)}</strong></p>
+    <p class="mt-1">Saldo atual: <strong style="color:var(--primary)">${fPts(curBal)} pts</strong></p>
+    <div class="divider"></div>
+    <div class="form-group">
+      <label>Operação</label>
+      <select id="pa_op" onchange="updateAdjPreview(${curBal})">
+        <option value="add">➕ Adicionar pontos</option>
+        <option value="remove">➖ Remover pontos</option>
+        <option value="zero">🔄 Zerar saldo</option>
+      </select>
+    </div>
+    <div id="pa_fields">
+      <div class="form-group"><label>Quantidade de Pontos *</label><input id="pa_pts" type="number" min="1" placeholder="Ex: 100" oninput="updateAdjPreview(${curBal})"></div>
+      <div class="form-group"><label>Motivo / Descrição *</label><input id="pa_desc" placeholder="Ex: Meta atingida em Março…"></div>
+    </div>
+    <div id="pa_preview" style="background:var(--primary-light);border-radius:8px;padding:10px 14px;font-size:14px;margin-bottom:16px;display:none">
+      Novo saldo: <strong id="pa_newbal" style="color:var(--primary)"></strong>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" id="pa_confirm" onclick="applyAdjBal('${id}','${escJs(name)}',${curBal})">Confirmar</button>
+    </div>`);
+  updateAdjPreview(curBal);
+}
+
+function updateAdjPreview(curBal) {
+  const op = document.getElementById('pa_op')?.value;
+  const fields = document.getElementById('pa_fields');
+  const preview = document.getElementById('pa_preview');
+  const newBalEl = document.getElementById('pa_newbal');
+  const btn = document.getElementById('pa_confirm');
+  if (!op) return;
+
+  if (op === 'zero') {
+    fields.style.display = 'none';
+    preview.style.display = 'block';
+    newBalEl.textContent = '0 pts';
+    btn.textContent = '🔄 Zerar Saldo';
+  } else {
+    fields.style.display = 'block';
+    const pts = parseInt(document.getElementById('pa_pts')?.value) || 0;
+    const newBal = op === 'add' ? curBal + pts : Math.max(0, curBal - pts);
+    if (pts > 0) {
+      preview.style.display = 'block';
+      newBalEl.textContent = fPts(newBal) + ' pts';
+    } else {
+      preview.style.display = 'none';
+    }
+    btn.textContent = op === 'add' ? '➕ Adicionar Pontos' : '➖ Remover Pontos';
+  }
+}
+
+async function applyAdjBal(id, name, curBal) {
+  const op   = document.getElementById('pa_op').value;
+  const desc = document.getElementById('pa_desc')?.value.trim() || 'Ajuste manual pelo admin';
+  let pts, newBal, txType;
+
+  if (op === 'zero') {
+    pts    = -curBal;
+    newBal = 0;
+    txType = 'debit';
+  } else {
+    const raw = parseInt(document.getElementById('pa_pts').value);
+    if (!raw || raw <= 0) { toast('Informe uma quantidade válida.', 'err'); return; }
+    if (!desc) { toast('Informe o motivo.', 'err'); return; }
+    if (op === 'add') { pts = raw; newBal = curBal + raw; txType = 'credit'; }
+    else              { pts = -raw; newBal = Math.max(0, curBal - raw); txType = 'debit'; }
+  }
+
+  const { error } = await sb.from('profiles').update({ points_balance: newBal }).eq('id', id);
+  if (error) { toast('Erro ao atualizar saldo.', 'err'); return; }
+
+  if (pts !== 0) {
+    await sb.from('point_transactions').insert({
+      employee_id: id, admin_id: curProfile.id,
+      points: pts, description: desc, type: txType
+    });
+  }
+
+  closeModal();
+  if (op === 'zero')        toast(`🔄 Saldo de ${name} zerado!`);
+  else if (op === 'add')    toast(`✅ ${fPts(Math.abs(pts))} pontos adicionados para ${name}!`);
+  else                      toast(`➖ ${fPts(Math.abs(pts))} pontos removidos de ${name}.`);
+  loadEmps();
+}
+
+// ═══════════════════════════════════════════════
+// ADMIN — CATALOG
+// ═══════════════════════════════════════════════
+async function loadAdmCat() {
+  const grid = document.getElementById('admCatGrid');
+  grid.innerHTML = `<div class="center-msg"><div class="spinner"></div></div>`;
+  const { data } = await sb.from('products').select('*').order('created_at', { ascending: false });
+  if (!data || data.length === 0) { grid.innerHTML = html_empty('🎁', 'Nenhum prêmio cadastrado. Clique em "+ Novo Prêmio" para começar!'); return; }
+  grid.innerHTML = data.map(p => admProductCard(p)).join('');
+}
+
+function admProductCard(p) {
+  const imgHtml = p.image_url
+    ? `<img src="${escHtml(p.image_url)}" alt="${escHtml(p.name)}" onerror="this.style.display='none'; this.parentElement.innerHTML='🎁'">`
+    : '🎁';
+  const stockLabel = p.stock_quantity === null || p.stock_quantity === undefined
+    ? '<span class="badge badge-blue">📦 Estoque ilimitado</span>'
+    : p.stock_quantity <= 0
+      ? '<span class="badge badge-red">🚫 Esgotado (0 un.)</span>'
+      : `<span class="badge badge-green">📦 Estoque: ${p.stock_quantity} un.</span>`;
+  return `<div class="product-card">
+    <div class="product-thumb">${imgHtml}</div>
+    <div class="product-body">
+      <div class="product-name">${escHtml(p.name)} ${!p.is_active ? '<span class="badge badge-red">Inativo</span>' : ''}</div>
+      <div class="product-desc">${escHtml(p.description || '')}</div>
+      <div style="margin-bottom:8px">${stockLabel}</div>
+      ${p.delivery_days != null ? `<div style="font-size:12px;color:var(--muted);margin-bottom:8px">⏱️ Prazo de entrega: ${p.delivery_days === 0 ? 'Imediato' : p.delivery_days + ' dia' + (p.delivery_days !== 1 ? 's úteis' : ' útil')}</div>` : ''}
+      <div class="product-footer" style="flex-direction:column; align-items:stretch; gap:8px">
+        <span class="pts-tag" style="text-align:center">⭐ ${fPts(p.points_cost)} pontos</span>
+        <div class="flex gap-2">
+          <button class="btn btn-ghost btn-sm" style="flex:1" onclick="openEditProductModal('${p.id}','${escJs(p.name)}','${escJs(p.description||'')}',${p.points_cost},'${escJs(p.image_url||'')}',${p.is_active},${p.stock_quantity ?? 'null'},${p.delivery_days ?? 'null'})">✏️ Editar</button>
+          <button class="btn btn-danger btn-sm" style="flex:1" onclick="confirmDeleteProduct('${p.id}','${escJs(p.name)}')">🗑️</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function openNewProductModal() {
+  openModal(`<div class="modal-title">🎁 Novo Prêmio</div>
+    <div class="form-group"><label>Nome do Prêmio *</label><input id="np_name" placeholder="Ex: Caneta Conexa Saúde"></div>
+    <div class="form-group"><label>Descrição</label><input id="np_desc" placeholder="Breve descrição do prêmio"></div>
+    <div class="form-group"><label>Custo em Pontos *</label><input id="np_pts" type="number" min="1" placeholder="Ex: 500"></div>
+    <div class="form-group">
+      <label>Quantidade em Estoque</label>
+      <input id="np_stock" type="number" min="0" placeholder="Deixe em branco para ilimitado">
+      <small>Os colaboradores não veem esse número. Quando chegar a zero, o prêmio aparece como indisponível.</small>
+    </div>
+    <div class="form-group">
+      <label>Prazo de Entrega (dias úteis)</label>
+      <input id="np_delivery" type="number" min="0" placeholder="Ex: 3 (deixe em branco para não informar)">
+      <small>0 = Imediato. Aparece no card do catálogo para o colaborador.</small>
+    </div>
+    <div class="form-group">
+      <label>Imagem do Prêmio</label>
+      <div id="np_img_preview" style="display:none;margin-bottom:8px">
+        <img id="np_img_thumb" src="" style="width:100%;max-height:140px;object-fit:cover;border-radius:8px;border:2px solid var(--border)">
+      </div>
+      <input type="file" id="np_img_file" accept="image/*" style="display:none" onchange="previewImg('np')">
+      <input type="hidden" id="np_img">
+      <div style="display:flex;gap:8px">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('np_img_file').click()">📎 Escolher foto</button>
+        <span id="np_img_status" style="font-size:13px;color:var(--muted);align-self:center"></span>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" id="np_save_btn" onclick="createProduct()">Adicionar ao Catálogo</button>
+    </div>`);
+}
+
+function previewImg(prefix) {
+  const file = document.getElementById(`${prefix}_img_file`).files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById(`${prefix}_img_thumb`).src = e.target.result;
+    document.getElementById(`${prefix}_img_preview`).style.display = 'block';
+    document.getElementById(`${prefix}_img_status`).textContent = `📎 ${file.name}`;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function uploadProductImg(prefix) {
+  const fileInput = document.getElementById(`${prefix}_img_file`);
+  const file = fileInput?.files[0];
+  if (!file) return document.getElementById(`${prefix}_img`)?.value || null;
+  const ext  = file.name.split('.').pop();
+  const path = `${Date.now()}.${ext}`;
+  const { error } = await sb.storage.from('product-images').upload(path, file, { upsert: true });
+  if (error) { toast('Erro ao enviar imagem: ' + error.message, 'err'); return null; }
+  const { data } = sb.storage.from('product-images').getPublicUrl(path);
+  return data.publicUrl;
+}
+
+async function createProduct() {
+  const name     = document.getElementById('np_name').value.trim();
+  const desc     = document.getElementById('np_desc').value.trim();
+  const pts      = parseInt(document.getElementById('np_pts').value);
+  const stRaw    = document.getElementById('np_stock').value.trim();
+  const stock    = stRaw === '' ? null : parseInt(stRaw);
+  const delRaw   = document.getElementById('np_delivery').value.trim();
+  const delivery = delRaw === '' ? null : parseInt(delRaw);
+  if (!name || !pts || pts <= 0) { toast('Preencha nome e custo em pontos.', 'err'); return; }
+  const btn = document.getElementById('np_save_btn');
+  btn.disabled = true; btn.textContent = 'Salvando…';
+  const img = await uploadProductImg('np');
+  if (img === null && document.getElementById('np_img_file').files[0]) {
+    btn.disabled = false; btn.textContent = 'Adicionar ao Catálogo'; return;
+  }
+  const { error } = await sb.from('products').insert({ name, description: desc, points_cost: pts, image_url: img || null, is_active: true, stock_quantity: stock, delivery_days: delivery });
+  if (error) { toast('Erro ao criar prêmio.', 'err'); btn.disabled = false; btn.textContent = 'Adicionar ao Catálogo'; return; }
+  closeModal(); toast(`✅ "${name}" adicionado ao catálogo!`);
+  loadAdmCat();
+}
+
+function openEditProductModal(id, name, desc, pts, img, active, stock, delivery) {
+  const stockVal    = (stock === null || stock === undefined || stock === 'null') ? '' : stock;
+  const deliveryVal = (delivery === null || delivery === undefined || delivery === 'null') ? '' : delivery;
+  const hasImg = img && img !== 'null' && img !== '';
+  openModal(`<div class="modal-title">✏️ Editar Prêmio</div>
+    <div class="form-group"><label>Nome *</label><input id="ep_name" value="${escHtml(name)}"></div>
+    <div class="form-group"><label>Descrição</label><input id="ep_desc" value="${escHtml(desc)}"></div>
+    <div class="form-group"><label>Custo em Pontos *</label><input id="ep_pts" type="number" min="1" value="${pts}"></div>
+    <div class="form-group">
+      <label>Quantidade em Estoque</label>
+      <input id="ep_stock" type="number" min="0" value="${stockVal}" placeholder="Deixe em branco para ilimitado">
+      <small>Deixe em branco para ilimitado. Zero = esgotado.</small>
+    </div>
+    <div class="form-group">
+      <label>Prazo de Entrega (dias úteis)</label>
+      <input id="ep_delivery" type="number" min="0" value="${deliveryVal}" placeholder="Deixe em branco para não informar">
+      <small>0 = Imediato. Aparece no catálogo para o colaborador.</small>
+    </div>
+    <div class="form-group">
+      <label>Imagem do Prêmio</label>
+      <div id="ep_img_preview" style="${hasImg ? '' : 'display:none;'}margin-bottom:8px">
+        <img id="ep_img_thumb" src="${escHtml(img||'')}" style="width:100%;max-height:140px;object-fit:cover;border-radius:8px;border:2px solid var(--border)">
+      </div>
+      <input type="file" id="ep_img_file" accept="image/*" style="display:none" onchange="previewImg('ep')">
+      <input type="hidden" id="ep_img" value="${escHtml(img||'')}">
+      <div style="display:flex;gap:8px">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('ep_img_file').click()">📎 Trocar foto</button>
+        <span id="ep_img_status" style="font-size:13px;color:var(--muted);align-self:center">${hasImg ? '✅ Imagem atual mantida' : ''}</span>
+      </div>
+    </div>
+    <div class="form-group"><label>Status</label>
+      <select id="ep_act">
+        <option value="true" ${active?'selected':''}>✅ Ativo (aparece no catálogo)</option>
+        <option value="false" ${!active?'selected':''}>❌ Inativo (oculto)</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" id="ep_save_btn" onclick="saveProduct('${id}')">Salvar</button>
+    </div>`);
+}
+
+async function saveProduct(id) {
+  const stRaw    = document.getElementById('ep_stock').value.trim();
+  const stock    = stRaw === '' ? null : parseInt(stRaw);
+  const delRaw   = document.getElementById('ep_delivery').value.trim();
+  const delivery = delRaw === '' ? null : parseInt(delRaw);
+  const btn = document.getElementById('ep_save_btn');
+  btn.disabled = true; btn.textContent = 'Salvando…';
+  const img = await uploadProductImg('ep');
+  if (img === null && document.getElementById('ep_img_file').files[0]) {
+    btn.disabled = false; btn.textContent = 'Salvar'; return;
+  }
+  const { error } = await sb.from('products').update({
+    name:           document.getElementById('ep_name').value.trim(),
+    description:    document.getElementById('ep_desc').value.trim(),
+    points_cost:    parseInt(document.getElementById('ep_pts').value),
+    image_url:      img || null,
+    is_active:      document.getElementById('ep_act').value === 'true',
+    stock_quantity: stock,
+    delivery_days:  delivery
+  }).eq('id', id);
+  if (error) { toast('Erro ao salvar.', 'err'); btn.disabled = false; btn.textContent = 'Salvar'; return; }
+  closeModal(); toast('✅ Prêmio atualizado!');
+  loadAdmCat();
+}
+
+function confirmDeleteProduct(id, name) {
+  openModal(`<div class="modal-title">🗑️ Excluir Prêmio</div>
+    <p>Tem certeza que quer excluir <strong>"${escHtml(name)}"</strong>?</p>
+    <p class="txt-muted mt-1">Essa ação não pode ser desfeita.</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-danger" onclick="deleteProduct('${id}')">Excluir</button>
+    </div>`);
+}
+
+async function deleteProduct(id) {
+  const { error } = await sb.from('products').delete().eq('id', id);
+  if (error) { toast('Erro ao excluir.', 'err'); return; }
+  closeModal(); toast('Prêmio excluído.');
+  loadAdmCat();
+}
+
+// ═══════════════════════════════════════════════
+// ADMIN — REDEMPTIONS
+// ═══════════════════════════════════════════════
+async function loadAdmRed() {
+  const el = document.getElementById('admRedWrap');
+  const { data } = await sb.from('redemptions')
+    .select('*, profiles!redemptions_employee_id_fkey(name, email, department), products(name)')
+    .order('created_at', { ascending: false });
+  if (!data || data.length === 0) { el.innerHTML = html_empty('📋', 'Nenhum pedido de resgate ainda'); return; }
+  el.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr><th>Funcionário</th><th>Setor</th><th>Prêmio</th><th>Pontos</th><th>Status</th><th>Data</th><th>Atualizar</th></tr></thead>
+    <tbody>${data.map(r => `<tr>
+      <td>
+        <strong>${r.profiles?.name || '—'}</strong>
+        <div class="txt-muted">${r.profiles?.email || ''}</div>
+      </td>
+      <td class="txt-muted">${r.profiles?.department || '—'}</td>
+      <td>${r.products?.name || '—'}</td>
+      <td class="txt-red">-${fPts(r.points_spent)} pts</td>
+      <td>${statusBadge(r.status)}</td>
+      <td class="txt-muted">${fDate(r.created_at)}</td>
+      <td>
+        <select onchange="updateRedStatus('${r.id}', this.value)" style="padding:5px 8px; border:2px solid var(--border); border-radius:6px; font-size:13px; cursor:pointer; outline:none;">
+          <option value="pending"    ${r.status==='pending'    ?'selected':''}>⏳ Pendente</option>
+          <option value="processing" ${r.status==='processing' ?'selected':''}>🔄 Em andamento</option>
+          <option value="delivered"  ${r.status==='delivered'  ?'selected':''}>✅ Entregue</option>
+          <option value="cancelled"  ${r.status==='cancelled'  ?'selected':''}>❌ Cancelado</option>
+        </select>
+      </td>
+    </tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
+async function updateRedStatus(id, newStatus) {
+  // Busca o resgate atual para verificar se está sendo cancelado
+  const { data: red } = await sb.from('redemptions')
+    .select('*, profiles!redemptions_employee_id_fkey(id, points_balance), products(id, stock_quantity)')
+    .eq('id', id).single();
+
+  if (!red) { toast('Resgate não encontrado.', 'err'); return; }
+
+  const wasCancelled = red.status === 'cancelled';
+  const isCancelling = newStatus === 'cancelled';
+
+  // Atualiza o status
+  const { error } = await sb.from('redemptions').update({ status: newStatus }).eq('id', id);
+  if (error) { toast('Erro ao atualizar status.', 'err'); return; }
+
+  // Se está CANCELANDO (e não estava cancelado antes): devolve pontos e estoque
+  if (isCancelling && !wasCancelled) {
+    // Devolve pontos ao colaborador
+    const empId   = red.profiles?.id;
+    const empBal  = red.profiles?.points_balance ?? 0;
+    const newBal  = empBal + red.points_spent;
+    if (empId) {
+      await sb.from('profiles').update({ points_balance: newBal }).eq('id', empId);
+      await sb.from('point_transactions').insert({
+        employee_id: empId, admin_id: curProfile.id,
+        points: red.points_spent,
+        description: `Estorno: resgate cancelado`,
+        type: 'credit'
+      });
+    }
+    // Devolve 1 unidade ao estoque (se for estoque controlado)
+    const prodId    = red.products?.id;
+    const prodStock = red.products?.stock_quantity;
+    if (prodId && prodStock !== null && prodStock !== undefined) {
+      await sb.from('products').update({ stock_quantity: prodStock + 1 }).eq('id', prodId);
+    }
+    toast('❌ Resgate cancelado — pontos e estoque devolvidos automaticamente.');
+
+  // Se estava cancelado e VOLTOU para outro status: desconta pontos e estoque novamente
+  } else if (wasCancelled && !isCancelling) {
+    const empId  = red.profiles?.id;
+    const empBal = red.profiles?.points_balance ?? 0;
+    const newBal = Math.max(0, empBal - red.points_spent);
+    if (empId) {
+      await sb.from('profiles').update({ points_balance: newBal }).eq('id', empId);
+      await sb.from('point_transactions').insert({
+        employee_id: empId, admin_id: curProfile.id,
+        points: -red.points_spent,
+        description: `Resgate reativado`,
+        type: 'debit'
+      });
+    }
+    const prodId    = red.products?.id;
+    const prodStock = red.products?.stock_quantity;
+    if (prodId && prodStock !== null && prodStock !== undefined && prodStock > 0) {
+      await sb.from('products').update({ stock_quantity: prodStock - 1 }).eq('id', prodId);
+    }
+    const labels = { pending: 'Pendente', processing: 'Em andamento', delivered: 'Entregue' };
+    toast(`Status → ${labels[newStatus]}`);
+
+  } else {
+    const labels = { pending: 'Pendente', processing: 'Em andamento', delivered: 'Entregue', cancelled: 'Cancelado' };
+    toast(`Status → ${labels[newStatus]}`);
+  }
+
+  loadAdmRed();
+}
+
+// ═══════════════════════════════════════════════
+// EMAIL NOTIFICATION
+// ═══════════════════════════════════════════════
+async function sendRedeemEmail(productName, pointsCost) {
+  try {
+    if (!window.emailjs || CFG.emailjsPublicKey.startsWith('COLE')) return;
+    // Busca todos os admins para notificar
+    const { data: admins } = await sb.from('profiles')
+      .select('email').eq('role', 'admin').eq('is_active', true);
+    const emailList = (admins || []).map(a => a.email).filter(Boolean);
+    if (emailList.length === 0) emailList.push(CFG.adminEmail);
+    const params = {
+      employee_name:  curProfile.name,
+      employee_email: curProfile.email || '',
+      employee_dept:  curProfile.department || 'Não informado',
+      product_name:   productName,
+      points_cost:    fPts(pointsCost) + ' pts',
+      date:           new Date().toLocaleString('pt-BR'),
+    };
+    // Envia para cada admin
+    for (const email of emailList) {
+      await emailjs.send(CFG.emailjsServiceId, CFG.emailjsTemplateId, { ...params, to_email: email });
+    }
+  } catch (err) { console.warn('Email não enviado:', err); }
+}
+
+// ═══════════════════════════════════════════════
+// MODAL HELPERS
+// ═══════════════════════════════════════════════
+function openModal(html) {
+  document.getElementById('modalBox').innerHTML = html;
+  document.getElementById('overlay').classList.add('open');
+}
+function closeModal() { document.getElementById('overlay').classList.remove('open'); }
+function maybeCloseModal(e) { if (e.target === document.getElementById('overlay')) closeModal(); }
+
+// ═══════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════
+function toast(msg, type = '') {
+  const t = document.getElementById('toasts');
+  const d = document.createElement('div');
+  d.className = 'toast ' + type;
+  d.textContent = msg;
+  t.appendChild(d);
+  setTimeout(() => d.remove(), 4000);
+}
+
+// ═══════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════
+function fPts(n) { return (n || 0).toLocaleString('pt-BR'); }
+function fDate(s) { return new Date(s).toLocaleDateString('pt-BR'); }
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escJs(s)   { return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+function html_empty(icon, msg) {
+  return `<div class="center-msg"><div class="big-icon">${icon}</div><p>${msg}</p></div>`;
+}
+function statusBadge(s) {
+  const m = { pending:'badge-yellow', processing:'badge-blue', delivered:'badge-green', cancelled:'badge-red' };
+  const l = { pending:'⏳ Pendente', processing:'🔄 Em andamento', delivered:'✅ Entregue', cancelled:'❌ Cancelado' };
+  return `<span class="badge ${m[s]||'badge-gray'}">${l[s]||s}</span>`;
+}
+
+// ═══════════════════════════════════════════════
+// POLICY — carregamento e edição
+// ═══════════════════════════════════════════════
+const POLICY_DEFAULTS = {
+  policy_intro: `O Programa Conexa Reconhece é uma iniciativa da Conexa Saúde voltada ao reconhecimento contínuo de colaboradores que demonstram desempenho, engajamento e alinhamento com a cultura e os valores da empresa.\n\nO programa funciona por meio de um sistema de pontos acumulados por ações e comportamentos reconhecidos pela organização. Esses pontos podem ser trocados por prêmios, experiências e benefícios disponíveis em nosso catálogo exclusivo, que inclui desde produtos da marca Conexa Saúde até benefícios com valor financeiro, como créditos no cartão Caju Cultura e dias de folga.\n\nReconhecemos que o programa representa um investimento da empresa em suas pessoas. Mais do que um custo, encaramos esse investimento como um retorno direto em engajamento, produtividade e retenção de talentos, elementos essenciais para o crescimento sustentável da Conexa Saúde.\n\nEste programa reforça nossa crença de que pessoas reconhecidas são pessoas mais engajadas, produtivas e felizes.\n\n🎯 Objetivos: Reconhecer e valorizar comportamentos alinhados à cultura Conexa Saúde; estimular o alto desempenho e o alcance de metas; incentivar a participação em treinamentos e iniciativas estratégicas; promover engajamento contínuo em todas as camadas da organização.\n\n👥 Público-alvo: Todos os colaboradores ativos da Conexa Saúde, independentemente do tipo de vínculo — CLT, PJ, Estagiários e Aprendizes.\n\n⚙️ Como funciona: Os pontos são atribuídos pelos administradores do programa diretamente na plataforma Conexa Pontos. Os pontos não expiram e se acumulam ao longo do tempo. Ao atingir a pontuação necessária, o colaborador acessa o catálogo, escolhe o prêmio e solicita o resgate. Os administradores recebem uma notificação automática e cuidam da entrega.`,
+  policy_rules: [
+    "Os pontos são pessoais e intransferíveis",
+    "Pontos não podem ser convertidos em dinheiro",
+    "Em caso de desligamento, os pontos acumulados são cancelados automaticamente",
+    "O RH se reserva o direito de cancelar pontos atribuídos por engano",
+    "O saldo de pontos não pode ficar negativo",
+    "Resgates cancelados têm os pontos automaticamente estornados ao colaborador",
+    "Prêmios com estoque esgotado ficam indisponíveis até reposição",
+    "O prazo de entrega varia conforme o tipo de prêmio (definido no catálogo)",
+    "Tentativas de fraude ou manipulação do sistema resultarão em cancelamento dos pontos e medidas disciplinares",
+    "O programa pode ser suspenso, alterado ou encerrado mediante comunicação prévia de 30 dias",
+    "Dúvidas e solicitações devem ser direcionadas ao time de Administração de Pessoal"
+  ],
+  policy_points: [
+    {"cat":"📊 Desempenho e Metas","action":"Bater meta dos dias presenciais no mês (escritório/cliente)","pts":"100 pts","freq":"Mensal"},
+    {"cat":"📊 Desempenho e Metas","action":"Finalizar o quarter com 100% dos KPIs atingidos","pts":"400 pts","freq":"Trimestral"},
+    {"cat":"📊 Desempenho e Metas","action":"Finalizar o quarter com 90% a 99% dos KPIs atingidos","pts":"250 pts","freq":"Trimestral"},
+    {"cat":"📊 Desempenho e Metas","action":"Atingir meta anual individual - KPIs","pts":"800 pts","freq":"Anual"},
+    {"cat":"📊 Desempenho e Metas","action":"Indicação de cliente que fecha contrato","pts":"150 pts","freq":"Por indicação"},
+    {"cat":"📚 Capacitação e Desenvolvimento","action":"Conclusão de treinamento institucional obrigatório","pts":"50 pts","freq":"Por treinamento"},
+    {"cat":"📚 Capacitação e Desenvolvimento","action":"Obtenção de certificação externa relevante à função","pts":"200 pts","freq":"Por certificação"},
+    {"cat":"📚 Capacitação e Desenvolvimento","action":"Participação em evento externo representando a empresa","pts":"100 pts","freq":"Por evento"},
+    {"cat":"📚 Capacitação e Desenvolvimento","action":"Participação em palestra ou evento interno da empresa","pts":"20 pts","freq":"Por participação"},
+    {"cat":"📚 Capacitação e Desenvolvimento","action":"Conclusão de curso de longa duração (acima de 20h)","pts":"150 pts","freq":"Por curso"},
+    {"cat":"🤝 Cultura, Engajamento e Colaboração","action":"Indicação de candidato contratado (Programa Indica)","pts":"120 pts","freq":"Por contratação"},
+    {"cat":"🤝 Cultura, Engajamento e Colaboração","action":"Participação ativa em projetos transversais/squad","pts":"80 pts","freq":"Por projeto"},
+    {"cat":"🤝 Cultura, Engajamento e Colaboração","action":"Reconhecimento espontâneo de par (peer-to-peer)","pts":"20 pts","freq":"Até 2x/mês"},
+    {"cat":"🤝 Cultura, Engajamento e Colaboração","action":"Participação em pesquisa de clima/engajamento","pts":"30 pts","freq":"Por pesquisa"},
+    {"cat":"🤝 Cultura, Engajamento e Colaboração","action":"Aniversário de empresa (a cada ano completo)","pts":"50 pts","freq":"Anual"},
+    {"cat":"🤝 Cultura, Engajamento e Colaboração","action":"Aniversário do colaborador","pts":"30 pts","freq":"Anual"},
+    {"cat":"🤝 Cultura, Engajamento e Colaboração","action":"Contribuição com melhoria de processo documentada","pts":"100 pts","freq":"Por aprovação"},
+    {"cat":"🤝 Cultura, Engajamento e Colaboração","action":"Participação em ação de voluntariado corporativo","pts":"60 pts","freq":"Por ação"}
+  ],
+  policy_prizes: [
+    {"cat":"🎉 Prêmios de Experiência","name":"Day Off — Folga Extra","pts":"500 pts","obs":"1 dia de folga além do padrão, a combinar com gestão. Limite: 1 resgate por mês"},
+    {"cat":"🎉 Prêmios de Experiência","name":"Short Day — Saída Antecipada","pts":"200 pts","obs":"Saída 4h antes no dia escolhido pelo colaborador. Limite: 2 resgates por mês"},
+    {"cat":"🎉 Prêmios de Experiência","name":"Home Office Extra","pts":"150 pts","obs":"1 dia adicional de trabalho remoto (válido para elegíveis)"},
+    {"cat":"💳 Prêmios em Valor","name":"Caju Cultura — R$ 50,00","pts":"600 pts","obs":"Crédito no cartão Caju para uso em cultura e lazer"},
+    {"cat":"💳 Prêmios em Valor","name":"Caju Cultura — R$ 100,00","pts":"1.100 pts","obs":"Crédito no cartão Caju para uso em cultura e lazer"},
+    {"cat":"💳 Prêmios em Valor","name":"Vale Ingresso Cinema (Cinemark)","pts":"400 pts","obs":"1 ingresso para qualquer filme em cartaz"},
+    {"cat":"👕 Produtos Conexa Saúde","name":"Caneta Conexa Saúde","pts":"80 pts","obs":"Caneta personalizada com a identidade visual da empresa"},
+    {"cat":"👕 Produtos Conexa Saúde","name":"Caderneta Conexa Saúde","pts":"200 pts","obs":"Caderno de anotações com capa personalizada"},
+    {"cat":"👕 Produtos Conexa Saúde","name":"Camiseta Conexa Saúde","pts":"350 pts","obs":"Camiseta personalizada, tamanho à escolha"},
+    {"cat":"📚 Desenvolvimento Profissional","name":"Curso Online (até 20h)","pts":"800 pts","obs":"Acesso a curso à escolha do colaborador (plataformas parceiras)"},
+    {"cat":"📚 Desenvolvimento Profissional","name":"Livro à Escolha","pts":"300 pts","obs":"Qualquer título disponível em livraria parceira (até R$ 80)"},
+    {"cat":"📚 Desenvolvimento Profissional","name":"Mentoria Individual (1h)","pts":"1.000 pts","obs":"Sessão de mentoria com liderança sênior da empresa"}
+  ]
+};
+
+let _policyData = {};
+
+async function loadPolicy() {
+  const el = document.getElementById('policyContent');
+  el.innerHTML = `<div class="center-msg"><div class="spinner"></div></div>`;
+
+  const { data: rows } = await sb.from('settings')
+    .select('key, value')
+    .in('key', ['policy_intro', 'policy_rules', 'policy_points', 'policy_prizes']);
+
+  // Monta mapa key→value, usando defaults quando não há dados no banco
+  _policyData = {};
+  (rows || []).forEach(r => {
+    try { _policyData[r.key] = JSON.parse(r.value); }
+    catch { _policyData[r.key] = r.value; }
+  });
+  // Aplica defaults para chaves ausentes
+  Object.keys(POLICY_DEFAULTS).forEach(k => {
+    if (!_policyData[k] || (Array.isArray(_policyData[k]) && _policyData[k].length === 0) || _policyData[k] === '')
+      _policyData[k] = POLICY_DEFAULTS[k];
+  });
+
+  const isAdmin = curProfile?.role === 'admin';
+  const editBtn = (section) => isAdmin
+    ? `<button class="btn btn-ghost btn-sm" style="float:right;margin-top:-4px" onclick="openPolicyEditor('${section}')">✏️ Editar</button>`
+    : '';
+
+  const intro   = _policyData.policy_intro || '';
+  const rules   = _policyData.policy_rules || [];
+  const points  = _policyData.policy_points || [];
+  const prizes  = _policyData.policy_prizes || [];
+
+  // Agrupa pontos por categoria
+  const pointsByCat = {};
+  points.forEach(r => {
+    if (!pointsByCat[r.cat]) pointsByCat[r.cat] = [];
+    pointsByCat[r.cat].push(r);
+  });
+
+  // Agrupa prêmios por categoria
+  const prizesByCat = {};
+  prizes.forEach(r => {
+    if (!prizesByCat[r.cat]) prizesByCat[r.cat] = [];
+    prizesByCat[r.cat].push(r);
+  });
+
+  el.innerHTML = `
+    <!-- Apresentação -->
+    <div class="card policy-section">
+      ${editBtn('intro')}
+      <h3>🎯 Sobre o Programa</h3>
+      <p style="font-size:14px;line-height:1.8;color:var(--text)">${escHtml(intro).replace(/\n/g,'<br>')}</p>
+    </div>
+
+    <!-- Pontuação -->
+    <div class="card policy-section">
+      ${editBtn('points')}
+      <h3>📊 Tabela de Pontuação</h3>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Ações e comportamentos que geram pontos:</p>
+      <table class="policy-table">
+        <thead><tr><th>Ação / Comportamento</th><th>Pontos</th><th>Frequência</th></tr></thead>
+        <tbody>
+          ${Object.entries(pointsByCat).map(([cat, rows]) => `
+            <tr><td colspan="3" style="background:var(--primary-light);font-weight:700;color:var(--primary-dark)">${escHtml(cat)}</td></tr>
+            ${rows.map(r => `<tr>
+              <td>${escHtml(r.action)}</td>
+              <td><span class="policy-pill">${escHtml(r.pts)}</span></td>
+              <td>${escHtml(r.freq)}</td>
+            </tr>`).join('')}
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Prêmios -->
+    <div class="card policy-section">
+      ${editBtn('prizes')}
+      <h3>🎁 Catálogo de Prêmios</h3>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Prêmios disponíveis (sujeito a atualizações pelo RH):</p>
+      <table class="policy-table">
+        <thead><tr><th>Prêmio</th><th>Pontos</th><th>Observação</th></tr></thead>
+        <tbody>
+          ${Object.entries(prizesByCat).map(([cat, rows]) => `
+            <tr><td colspan="3" style="background:#E8F4FD;font-weight:700;color:#0052CC">${escHtml(cat)}</td></tr>
+            ${rows.map(r => `<tr>
+              <td>${escHtml(r.name)}</td>
+              <td><span class="policy-pill">${escHtml(r.pts)}</span></td>
+              <td>${escHtml(r.obs)}</td>
+            </tr>`).join('')}
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Regras -->
+    <div class="card policy-section">
+      ${editBtn('rules')}
+      <h3>📋 Regras Gerais</h3>
+      <ul class="rule-list">
+        ${rules.map(r => `<li>${escHtml(r)}</li>`).join('')}
+      </ul>
+    </div>
+
+    <div class="card" style="background:var(--primary-light);border:none">
+      <p style="font-size:14px;color:var(--primary-dark);text-align:center">
+        💬 Dúvidas? Entre em contato com o time de <strong>Gestão de Pessoas</strong>.
+      </p>
+    </div>
+  `;
+}
+
+async function savePolicySetting(key, value) {
+  const { error } = await sb.from('settings')
+    .upsert({ key, value: JSON.stringify(value), updated_at: new Date().toISOString() });
+  if (error) { toast('Erro ao salvar. Tente novamente.', 'err'); return false; }
+  return true;
+}
+
+function openPolicyEditor(section) {
+  if (section === 'intro') {
+    const current = _policyData.policy_intro || '';
+    openModal(`<div class="modal-title">✏️ Editar Apresentação</div>
+      <div class="form-group">
+        <label>Texto de apresentação do programa</label>
+        <textarea id="pe_intro" rows="7" style="width:100%;padding:9px 12px;border:2px solid var(--border);border-radius:8px;font-size:14px;resize:vertical;font-family:inherit">${escHtml(current)}</textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="savePolicyIntro()">Salvar</button>
+      </div>`);
+    return;
+  }
+
+  if (section === 'rules') {
+    const current = (_policyData.policy_rules || []).join('\n');
+    openModal(`<div class="modal-title">✏️ Editar Regras Gerais</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:10px">Uma regra por linha.</p>
+      <div class="form-group">
+        <textarea id="pe_rules" rows="10" style="width:100%;padding:9px 12px;border:2px solid var(--border);border-radius:8px;font-size:14px;resize:vertical;font-family:inherit">${escHtml(current)}</textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="savePolicyRules()">Salvar</button>
+      </div>`);
+    return;
+  }
+
+  if (section === 'points') {
+    renderPolicyTableEditor('points');
+    return;
+  }
+
+  if (section === 'prizes') {
+    renderPolicyTableEditor('prizes');
+    return;
+  }
+}
+
+async function savePolicyIntro() {
+  const val = document.getElementById('pe_intro').value.trim();
+  if (!val) { toast('O texto não pode ficar vazio.', 'err'); return; }
+  const ok = await savePolicySetting('policy_intro', val);
+  if (ok) { closeModal(); toast('✅ Apresentação atualizada!'); loadPolicy(); }
+}
+
+async function savePolicyRules() {
+  const lines = document.getElementById('pe_rules').value
+    .split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  if (lines.length === 0) { toast('Adicione ao menos uma regra.', 'err'); return; }
+  const ok = await savePolicySetting('policy_rules', lines);
+  if (ok) { closeModal(); toast('✅ Regras atualizadas!'); loadPolicy(); }
+}
+
+// ── Editor de tabela (pontuação ou prêmios) ──
+function renderPolicyTableEditor(type) {
+  const isPoints = type === 'points';
+  const key  = isPoints ? 'policy_points' : 'policy_prizes';
+  const data = JSON.parse(JSON.stringify(_policyData[key] || [])); // cópia
+  const title = isPoints ? '📊 Editar Tabela de Pontuação' : '🎁 Editar Catálogo de Prêmios';
+  const catOptions = isPoints
+    ? ['📊 Desempenho e Metas','📚 Capacitação e Desenvolvimento','🤝 Cultura, Engajamento e Colaboração']
+    : ['🎉 Experiências','💳 Valor','👕 Produtos Conexa Saúde','📚 Desenvolvimento Profissional'];
+
+  window._policyEditData = data;
+  window._policyEditKey  = key;
+
+  function rowHtml(r, i) {
+    if (isPoints) {
+      return `<tr id="per_${i}" style="border-bottom:1px solid var(--border)">
+        <td style="padding:4px 6px">
+          <select onchange="window._policyEditData[${i}].cat=this.value" style="width:100%;padding:4px;border:1px solid var(--border);border-radius:4px;font-size:12px">
+            ${catOptions.map(c => `<option ${r.cat===c?'selected':''}>${c}</option>`).join('')}
+          </select>
+        </td>
+        <td style="padding:4px 6px"><input value="${escHtml(r.action)}" oninput="window._policyEditData[${i}].action=this.value" style="width:100%;padding:4px;border:1px solid var(--border);border-radius:4px;font-size:13px"></td>
+        <td style="padding:4px 6px"><input value="${escHtml(r.pts)}" oninput="window._policyEditData[${i}].pts=this.value" style="width:80px;padding:4px;border:1px solid var(--border);border-radius:4px;font-size:13px"></td>
+        <td style="padding:4px 6px"><input value="${escHtml(r.freq)}" oninput="window._policyEditData[${i}].freq=this.value" style="width:100%;padding:4px;border:1px solid var(--border);border-radius:4px;font-size:13px"></td>
+        <td style="padding:4px 6px;text-align:center"><button class="btn btn-danger btn-sm" onclick="removePolicyRow(${i},'${type}')">🗑️</button></td>
+      </tr>`;
+    } else {
+      return `<tr id="per_${i}" style="border-bottom:1px solid var(--border)">
+        <td style="padding:4px 6px">
+          <select onchange="window._policyEditData[${i}].cat=this.value" style="width:100%;padding:4px;border:1px solid var(--border);border-radius:4px;font-size:12px">
+            ${catOptions.map(c => `<option ${r.cat===c?'selected':''}>${c}</option>`).join('')}
+          </select>
+        </td>
+        <td style="padding:4px 6px"><input value="${escHtml(r.name)}" oninput="window._policyEditData[${i}].name=this.value" style="width:100%;padding:4px;border:1px solid var(--border);border-radius:4px;font-size:13px"></td>
+        <td style="padding:4px 6px"><input value="${escHtml(r.pts)}" oninput="window._policyEditData[${i}].pts=this.value" style="width:80px;padding:4px;border:1px solid var(--border);border-radius:4px;font-size:13px"></td>
+        <td style="padding:4px 6px"><input value="${escHtml(r.obs)}" oninput="window._policyEditData[${i}].obs=this.value" style="width:100%;padding:4px;border:1px solid var(--border);border-radius:4px;font-size:13px"></td>
+        <td style="padding:4px 6px;text-align:center"><button class="btn btn-danger btn-sm" onclick="removePolicyRow(${i},'${type}')">🗑️</button></td>
+      </tr>`;
+    }
+  }
+
+  const thead = isPoints
+    ? '<th>Categoria</th><th>Ação</th><th>Pontos</th><th>Frequência</th><th></th>'
+    : '<th>Categoria</th><th>Prêmio</th><th>Pontos</th><th>Observação</th><th></th>';
+
+  document.getElementById('modalBox').innerHTML = `
+    <div class="modal-title">${title}</div>
+    <div style="max-height:55vh;overflow-y:auto;margin-bottom:12px">
+      <table width="100%" style="font-size:13px;border-collapse:collapse">
+        <thead><tr style="background:var(--bg)">${thead}</tr></thead>
+        <tbody id="policyEditTbody">${data.map((r,i) => rowHtml(r,i)).join('')}</tbody>
+      </table>
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="addPolicyRow('${type}')">➕ Adicionar linha</button>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="savePolicyTable('${type}')">💾 Salvar</button>
+    </div>`;
+  document.getElementById('overlay').classList.add('open');
+}
+
+function addPolicyRow(type) {
+  const isPoints = type === 'points';
+  const catOptions = isPoints
+    ? ['📊 Desempenho e Metas','📚 Capacitação e Desenvolvimento','🤝 Cultura, Engajamento e Colaboração']
+    : ['🎉 Experiências','💳 Valor','👕 Produtos Conexa Saúde','📚 Desenvolvimento Profissional'];
+  const newRow = isPoints
+    ? { cat: catOptions[0], action: '', pts: '', freq: '' }
+    : { cat: catOptions[0], name: '', pts: '', obs: '' };
+  window._policyEditData.push(newRow);
+  renderPolicyTableEditor(type);
+}
+
+function removePolicyRow(i, type) {
+  window._policyEditData.splice(i, 1);
+  renderPolicyTableEditor(type);
+}
+
+async function savePolicyTable(type) {
+  const key  = type === 'points' ? 'policy_points' : 'policy_prizes';
+  const data = window._policyEditData;
+  const ok   = await savePolicySetting(key, data);
+  if (ok) { closeModal(); toast('✅ Tabela atualizada!'); loadPolicy(); }
+}
+
+// ═══════════════════════════════════════════════
+// REPORTS
+// ═══════════════════════════════════════════════
+let _reportCache = null;
+
+async function loadReports() {
+  const el = document.getElementById('reportsContent');
+  el.innerHTML = `<div class="center-msg"><div class="spinner"></div></div>`;
+  document.getElementById('btnExportReport').style.display = 'none';
+
+  const [rankRed, rankPts, topProds, statsRes] = await Promise.all([
+    // Ranking por número de resgates (não cancelados)
+    sb.from('redemptions')
+      .select('employee_id, profiles!redemptions_employee_id_fkey(name, email, department)')
+      .neq('status', 'cancelled'),
+    // Ranking por pontos acumulados (total de créditos)
+    sb.from('point_transactions')
+      .select('employee_id, points, profiles!point_transactions_employee_id_fkey(name, email, department)')
+      .gt('points', 0),
+    // Prêmios mais resgatados
+    sb.from('redemptions')
+      .select('product_id, products(name)')
+      .neq('status', 'cancelled'),
+    // Totais gerais
+    Promise.all([
+      sb.from('redemptions').select('id', { count: 'exact' }).neq('status', 'cancelled'),
+      sb.from('point_transactions').select('points').gt('points', 0),
+      sb.from('profiles').select('id', { count: 'exact' }).eq('role', 'employee').eq('is_active', true),
+    ])
+  ]);
+
+  // Processa ranking de resgates
+  const redCount = {};
+  const redMeta  = {};
+  (rankRed.data || []).forEach(r => {
+    redCount[r.employee_id] = (redCount[r.employee_id] || 0) + 1;
+    redMeta[r.employee_id]  = { name: r.profiles?.name || '—', email: r.profiles?.email || '—', dept: r.profiles?.department || '—' };
+  });
+  const topByRedeemed = Object.entries(redCount)
+    .sort((a, b) => b[1] - a[1]).slice(0, 10)
+    .map(([id, cnt]) => ({ ...redMeta[id], count: cnt }));
+
+  // Processa ranking por pontos ganhos
+  const ptsEarned = {};
+  const ptsMeta   = {};
+  (rankPts.data || []).forEach(r => {
+    ptsEarned[r.employee_id] = (ptsEarned[r.employee_id] || 0) + r.points;
+    ptsMeta[r.employee_id]   = { name: r.profiles?.name || '—', email: r.profiles?.email || '—', dept: r.profiles?.department || '—' };
+  });
+  const topByPts = Object.entries(ptsEarned)
+    .sort((a, b) => b[1] - a[1]).slice(0, 10)
+    .map(([id, pts]) => ({ ...ptsMeta[id], pts }));
+
+  // Processa prêmios mais resgatados
+  const prodCount = {};
+  const prodNames = {};
+  (topProds.data || []).forEach(r => {
+    prodCount[r.product_id] = (prodCount[r.product_id] || 0) + 1;
+    prodNames[r.product_id] = r.products?.name || '—';
+  });
+  const topProdsList = Object.entries(prodCount)
+    .sort((a, b) => b[1] - a[1]).slice(0, 5)
+    .map(([id, cnt]) => ({ name: prodNames[id], count: cnt }));
+
+  const [totalRed, totalPtsRes, activeEmps] = statsRes;
+  const totalPts = (totalPtsRes.data || []).reduce((s, t) => s + t.points, 0);
+
+  function rankBadge(i) {
+    const cls = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : 'rank-other';
+    return `<span class="rank-badge ${cls}">${i + 1}</span>`;
+  }
+
+  el.innerHTML = `
+    <!-- Totais -->
+    <div class="stats-row" style="margin-bottom:24px">
+      <div class="stat-card"><div class="stat-icon">👥</div><div class="stat-label">Colaboradores Ativos</div><div class="stat-value">${activeEmps.count ?? 0}</div></div>
+      <div class="stat-card"><div class="stat-icon">⭐</div><div class="stat-label">Total de Pontos Distribuídos</div><div class="stat-value">${fPts(totalPts)}</div></div>
+      <div class="stat-card"><div class="stat-icon">🎁</div><div class="stat-label">Total de Resgates Realizados</div><div class="stat-value">${totalRed.count ?? 0}</div></div>
+      <div class="stat-card"><div class="stat-icon">📊</div><div class="stat-label">Média de Pontos por Pessoa</div><div class="stat-value">${activeEmps.count ? fPts(Math.round(totalPts / activeEmps.count)) : '—'}</div></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:20px;margin-bottom:24px">
+
+      <!-- Ranking por resgates -->
+      <div class="card">
+        <div class="card-title">🏆 Quem Mais Resgatou Prêmios</div>
+        ${topByRedeemed.length === 0 ? html_empty('📦', 'Nenhum resgate ainda') : `
+        <div class="table-wrap"><table>
+          <thead><tr><th>#</th><th>Colaborador</th><th>E-mail</th><th>Área</th><th style="text-align:center">Resgates</th></tr></thead>
+          <tbody>${topByRedeemed.map((r, i) => `<tr>
+            <td>${rankBadge(i)}</td>
+            <td><strong>${escHtml(r.name)}</strong></td>
+            <td class="txt-muted">${escHtml(r.email)}</td>
+            <td class="txt-muted">${escHtml(r.dept)}</td>
+            <td style="text-align:center"><span class="badge badge-green">${r.count}</span></td>
+          </tr>`).join('')}</tbody>
+        </table></div>`}
+      </div>
+
+      <!-- Ranking por pontos ganhos -->
+      <div class="card">
+        <div class="card-title">⭐ Quem Mais Acumulou Pontos</div>
+        ${topByPts.length === 0 ? html_empty('⭐', 'Nenhuma pontuação ainda') : `
+        <div class="table-wrap"><table>
+          <thead><tr><th>#</th><th>Colaborador</th><th>E-mail</th><th>Área</th><th style="text-align:center">Pontos Ganhos</th></tr></thead>
+          <tbody>${topByPts.map((r, i) => `<tr>
+            <td>${rankBadge(i)}</td>
+            <td><strong>${escHtml(r.name)}</strong></td>
+            <td class="txt-muted">${escHtml(r.email)}</td>
+            <td class="txt-muted">${escHtml(r.dept)}</td>
+            <td style="text-align:center"><strong style="color:var(--primary)">${fPts(r.pts)} pts</strong></td>
+          </tr>`).join('')}</tbody>
+        </table></div>`}
+      </div>
+
+    </div>
+
+    <!-- Prêmios mais resgatados -->
+    <div class="card">
+      <div class="card-title">🎁 Prêmios Mais Resgatados</div>
+      ${topProdsList.length === 0 ? html_empty('🎁', 'Nenhum resgate ainda') : `
+      <div class="table-wrap"><table>
+        <thead><tr><th>#</th><th>Prêmio</th><th style="text-align:center">Resgates</th></tr></thead>
+        <tbody>${topProdsList.map((p, i) => `<tr>
+          <td>${rankBadge(i)}</td>
+          <td><strong>${escHtml(p.name)}</strong></td>
+          <td style="text-align:center"><span class="badge badge-blue">${p.count} vez${p.count !== 1 ? 'es' : ''}</span></td>
+        </tr>`).join('')}</tbody>
+      </table></div>`}
+    </div>
+  `;
+
+  // Salva dados em cache para exportação (inclui email e área)
+  _reportCache = {
+    geradoEm:     new Date().toLocaleString('pt-BR'),
+    totalEmps:    activeEmps.count ?? 0,
+    totalPts,
+    totalRed:     totalRed.count ?? 0,
+    topByRedeemed,
+    topByPts,
+    topProdsList,
+  };
+  document.getElementById('btnExportReport').style.display = 'inline-flex';
+}
+
+function exportReports() {
+  if (!_reportCache) { toast('Carregue os relatórios primeiro.', 'err'); return; }
+  const wb = XLSX.utils.book_new();
+  const d  = _reportCache;
+
+  // ── Aba 1: Resumo Geral ──
+  const resumoData = [
+    ['Programa Conexa Reconhece — Relatório Geral'],
+    ['Gerado em:', d.geradoEm],
+    [],
+    ['Indicador', 'Valor'],
+    ['Colaboradores Ativos', d.totalEmps],
+    ['Total de Pontos Distribuídos', d.totalPts],
+    ['Total de Resgates Realizados', d.totalRed],
+    ['Média de Pontos por Colaborador', d.totalEmps > 0 ? Math.round(d.totalPts / d.totalEmps) : 0],
+  ];
+  const wsResumo = XLSX.utils.aoa_to_sheet(resumoData);
+  wsResumo['!cols'] = [{ wch: 38 }, { wch: 20 }];
+  XLSX.utils.book_append_sheet(wb, wsResumo, 'Resumo Geral');
+
+  // ── Aba 2: Ranking — Mais Resgates ──
+  const redData = [
+    ['#', 'Colaborador', 'E-mail', 'Área', 'Quantidade de Resgates'],
+    ...d.topByRedeemed.map((r, i) => [i + 1, r.name, r.email, r.dept, r.count]),
+  ];
+  const wsRed = XLSX.utils.aoa_to_sheet(redData);
+  wsRed['!cols'] = [{ wch: 5 }, { wch: 30 }, { wch: 32 }, { wch: 22 }, { wch: 22 }];
+  XLSX.utils.book_append_sheet(wb, wsRed, 'Ranking - Mais Resgates');
+
+  // ── Aba 3: Ranking — Mais Pontos ──
+  const ptsData = [
+    ['#', 'Colaborador', 'E-mail', 'Área', 'Total de Pontos Ganhos'],
+    ...d.topByPts.map((r, i) => [i + 1, r.name, r.email, r.dept, r.pts]),
+  ];
+  const wsPts = XLSX.utils.aoa_to_sheet(ptsData);
+  wsPts['!cols'] = [{ wch: 5 }, { wch: 30 }, { wch: 32 }, { wch: 22 }, { wch: 22 }];
+  XLSX.utils.book_append_sheet(wb, wsPts, 'Ranking - Mais Pontos');
+
+  // ── Aba 4: Prêmios Mais Resgatados ──
+  const prodsData = [
+    ['#', 'Prêmio', 'Total de Resgates'],
+    ...d.topProdsList.map((p, i) => [i + 1, p.name, p.count]),
+  ];
+  const wsProds = XLSX.utils.aoa_to_sheet(prodsData);
+  wsProds['!cols'] = [{ wch: 5 }, { wch: 36 }, { wch: 20 }];
+  XLSX.utils.book_append_sheet(wb, wsProds, 'Premios Mais Resgatados');
+
+  // Gera e baixa o arquivo
+  const fileName = `relatorio-conexa-pontos-${new Date().toISOString().slice(0,10)}.xlsx`;
+  XLSX.writeFile(wb, fileName);
+  toast('✅ Relatório exportado com sucesso!');
+}
+
+// ═══════════════════════════════════════════════
+// IMPORT — EMPLOYEES
+// ═══════════════════════════════════════════════
+function openImportEmpsModal() {
+  openModal(`<div class="modal-title">📥 Importar Funcionários</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:12px">
+      Faça upload de uma planilha <strong>Excel (.xlsx)</strong> ou <strong>CSV</strong> com as colunas:<br>
+      <code style="background:var(--bg);padding:2px 6px;border-radius:4px">Nome | Email | Setor</code>
+    </p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:14px">A primeira linha deve ser o cabeçalho. Cada funcionário receberá um convite por e-mail.</p>
+    <div class="form-group">
+      <input type="file" id="imp_emp_file" accept=".xlsx,.xls,.csv" onchange="previewImportEmps()">
+    </div>
+    <div id="imp_emp_preview"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" id="imp_emp_btn" onclick="processImportEmps()" disabled>Importar</button>
+    </div>`);
+}
+
+let _importEmpRows = [];
+function previewImportEmps() {
+  const file = document.getElementById('imp_emp_file').files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      let rows = [];
+      if (file.name.endsWith('.csv')) {
+        // Parse CSV
+        const text = new TextDecoder('utf-8').decode(e.target.result);
+        const lines = text.split(/\r?\n/).filter(l => l.trim());
+        rows = lines.slice(1).map(l => l.split(/[;,]/).map(c => c.trim().replace(/^"|"$/g, '')));
+      } else {
+        // Parse Excel
+        const wb = XLSX.read(e.target.result, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        rows = data.slice(1).map(r => [String(r[0]||'').trim(), String(r[1]||'').trim(), String(r[2]||'').trim()]);
+      }
+      _importEmpRows = rows.filter(r => r[0] && r[1]);
+      const preview = document.getElementById('imp_emp_preview');
+      if (_importEmpRows.length === 0) {
+        preview.innerHTML = '<div class="import-err">Nenhuma linha válida encontrada. Verifique o arquivo.</div>';
+        document.getElementById('imp_emp_btn').disabled = true;
+        return;
+      }
+      preview.innerHTML = `
+        <div class="import-progress">${_importEmpRows.length} funcionário${_importEmpRows.length !== 1 ? 's' : ''} encontrado${_importEmpRows.length !== 1 ? 's' : ''} para importar</div>
+        <div class="import-preview">
+          <table width="100%" style="font-size:13px;border-collapse:collapse">
+            <thead><tr style="background:var(--bg)"><th style="padding:6px 10px;text-align:left">Nome</th><th style="padding:6px 10px;text-align:left">E-mail</th><th style="padding:6px 10px;text-align:left">Setor</th></tr></thead>
+            <tbody>${_importEmpRows.map(r => `<tr style="border-bottom:1px solid var(--border)">
+              <td style="padding:6px 10px">${escHtml(r[0])}</td>
+              <td style="padding:6px 10px;color:var(--muted)">${escHtml(r[1])}</td>
+              <td style="padding:6px 10px;color:var(--muted)">${escHtml(r[2]||'—')}</td>
+            </tr>`).join('')}</tbody>
+          </table>
+        </div>`;
+      document.getElementById('imp_emp_btn').disabled = false;
+    } catch(err) {
+      document.getElementById('imp_emp_preview').innerHTML = '<div class="import-err">Erro ao ler o arquivo: ' + err.message + '</div>';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+async function processImportEmps() {
+  if (!_importEmpRows.length) return;
+  const btn = document.getElementById('imp_emp_btn');
+  btn.disabled = true;
+  const token = (await sb.auth.getSession()).data.session?.access_token;
+  let ok = 0, fail = 0;
+  const preview = document.getElementById('imp_emp_preview');
+  for (let i = 0; i < _importEmpRows.length; i++) {
+    const [name, email, dept] = _importEmpRows[i];
+    preview.innerHTML = `<div class="import-progress">⏳ Processando ${i + 1} de ${_importEmpRows.length}: ${escHtml(name)}…</div>`;
+    try {
+      const res = await fetch(`${CFG.edgeFnBaseUrl}/create-employee`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ name, email, department: dept || '', role: 'employee' })
+      });
+      const json = await res.json();
+      if (res.ok && !json.error) ok++;
+      else fail++;
+    } catch { fail++; }
+  }
+  preview.innerHTML = `<div class="import-progress" style="background:${fail > 0 ? '#ffebe6' : 'var(--primary-light)'};color:${fail > 0 ? 'var(--danger)' : 'var(--primary-dark)'}">
+    ✅ ${ok} importado${ok !== 1 ? 's' : ''} com sucesso${fail > 0 ? ` · ⚠️ ${fail} com erro (e-mail já cadastrado ou inválido)` : ''}
+  </div>`;
+  btn.textContent = 'Fechar';
+  btn.disabled = false;
+  btn.onclick = () => { closeModal(); loadEmps(); };
+}
+
+// ═══════════════════════════════════════════════
+// IMPORT — POINTS
+// ═══════════════════════════════════════════════
+function openImportPointsModal() {
+  openModal(`<div class="modal-title">📥 Importar Pontos em Massa</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:12px">
+      Faça upload de uma planilha <strong>Excel (.xlsx)</strong> ou <strong>CSV</strong> com as colunas:<br>
+      <code style="background:var(--bg);padding:2px 6px;border-radius:4px">Email | Pontos | Descrição</code>
+    </p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:14px">A primeira linha deve ser o cabeçalho. Os pontos serão adicionados ao saldo atual de cada colaborador.</p>
+    <div class="form-group">
+      <input type="file" id="imp_pts_file" accept=".xlsx,.xls,.csv" onchange="previewImportPoints()">
+    </div>
+    <div id="imp_pts_preview"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" id="imp_pts_btn" onclick="processImportPoints()" disabled>Aplicar Pontos</button>
+    </div>`);
+}
+
+let _importPtsRows = [];
+function previewImportPoints() {
+  const file = document.getElementById('imp_pts_file').files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      let rows = [];
+      if (file.name.endsWith('.csv')) {
+        const text = new TextDecoder('utf-8').decode(e.target.result);
+        const lines = text.split(/\r?\n/).filter(l => l.trim());
+        rows = lines.slice(1).map(l => l.split(/[;,]/).map(c => c.trim().replace(/^"|"$/g, '')));
+      } else {
+        const wb = XLSX.read(e.target.result, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        rows = data.slice(1).map(r => [String(r[0]||'').trim(), String(r[1]||'').trim(), String(r[2]||'').trim()]);
+      }
+      _importPtsRows = rows.filter(r => r[0] && r[1] && !isNaN(parseInt(r[1])) && parseInt(r[1]) > 0);
+      const preview = document.getElementById('imp_pts_preview');
+      if (_importPtsRows.length === 0) {
+        preview.innerHTML = '<div class="import-err">Nenhuma linha válida. Verifique se a coluna Pontos tem valores numéricos positivos.</div>';
+        document.getElementById('imp_pts_btn').disabled = true;
+        return;
+      }
+      const totalPts = _importPtsRows.reduce((s, r) => s + parseInt(r[1]), 0);
+      preview.innerHTML = `
+        <div class="import-progress">${_importPtsRows.length} registro${_importPtsRows.length !== 1 ? 's' : ''} · Total: ${fPts(totalPts)} pontos a distribuir</div>
+        <div class="import-preview">
+          <table width="100%" style="font-size:13px;border-collapse:collapse">
+            <thead><tr style="background:var(--bg)"><th style="padding:6px 10px;text-align:left">E-mail</th><th style="padding:6px 10px;text-align:right">Pontos</th><th style="padding:6px 10px;text-align:left">Descrição</th></tr></thead>
+            <tbody>${_importPtsRows.map(r => `<tr style="border-bottom:1px solid var(--border)">
+              <td style="padding:6px 10px;color:var(--muted)">${escHtml(r[0])}</td>
+              <td style="padding:6px 10px;text-align:right"><strong style="color:var(--primary)">+${fPts(parseInt(r[1]))} pts</strong></td>
+              <td style="padding:6px 10px;color:var(--muted)">${escHtml(r[2]||'Importação em massa')}</td>
+            </tr>`).join('')}</tbody>
+          </table>
+        </div>`;
+      document.getElementById('imp_pts_btn').disabled = false;
+    } catch(err) {
+      document.getElementById('imp_pts_preview').innerHTML = '<div class="import-err">Erro ao ler o arquivo: ' + err.message + '</div>';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+async function processImportPoints() {
+  if (!_importPtsRows.length) return;
+  const btn = document.getElementById('imp_pts_btn');
+  btn.disabled = true;
+  const preview = document.getElementById('imp_pts_preview');
+  let ok = 0, notFound = 0;
+
+  for (let i = 0; i < _importPtsRows.length; i++) {
+    const [email, ptsStr, desc] = _importPtsRows[i];
+    const pts = parseInt(ptsStr);
+    preview.innerHTML = `<div class="import-progress">⏳ Processando ${i + 1} de ${_importPtsRows.length}: ${escHtml(email)}…</div>`;
+    // Busca perfil pelo e-mail
+    const { data: prof } = await sb.from('profiles').select('id, points_balance').eq('email', email).eq('is_active', true).single();
+    if (!prof) { notFound++; continue; }
+    const newBal = (prof.points_balance || 0) + pts;
+    await sb.from('profiles').update({ points_balance: newBal }).eq('id', prof.id);
+    await sb.from('point_transactions').insert({
+      employee_id: prof.id,
+      admin_id: curProfile.id,
+      points: pts,
+      description: desc || 'Importação em massa',
+      type: 'credit'
+    });
+    ok++;
+  }
+
+  preview.innerHTML = `<div class="import-progress" style="background:${notFound > 0 ? '#ffebe6' : 'var(--primary-light)'};color:${notFound > 0 ? 'var(--danger)' : 'var(--primary-dark)'}">
+    ✅ ${ok} colaborador${ok !== 1 ? 'es' : ''} atualizado${ok !== 1 ? 's' : ''}${notFound > 0 ? ` · ⚠️ ${notFound} e-mail${notFound !== 1 ? 's' : ''} não encontrado${notFound !== 1 ? 's' : ''} (inativo ou inexistente)` : ''}
+  </div>`;
+  btn.textContent = 'Fechar';
+  btn.disabled = false;
+  btn.onclick = () => { closeModal(); loadEmps(); };
+}
+</script>
+</body>
+</html>
