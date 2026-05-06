@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Conexa Pontos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -11,33 +14,37 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --primary: #00875A;
-      --primary-dark: #006644;
-      --primary-light: #E3FCEF;
-      --bg: #F4F5F7;
+      --primary: #EF4465;
+      --primary-dark: #DD224F;
+      --primary-light: #FFF1F8;
+      --accent: #8149F2;
+      --accent-light: #F5F3FF;
+      --bg: #EBF1F7;
       --white: #FFFFFF;
-      --sidebar: #1E1E2E;
-      --border: #DFE1E6;
-      --text: #172B4D;
-      --muted: #6B778C;
-      --success: #00875A;
-      --danger: #DE350B;
-      --warning: #FF991F;
-      --info: #0065FF;
-      --shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08);
-      --shadow-lg: 0 4px 16px rgba(0,0,0,0.12);
-      --radius: 8px;
-      --sidebar-width: 240px;
+      --sidebar: #102740;
+      --sidebar-hover: #1F3C59;
+      --border: #CFDAE5;
+      --text: #102740;
+      --muted: #5A7896;
+      --success: #2E7D32;
+      --danger: #C62828;
+      --warning: #E65100;
+      --info: #1565C0;
+      --shadow: 0 1px 3px rgba(16,39,64,0.10), 0 1px 2px rgba(16,39,64,0.06);
+      --shadow-lg: 0 4px 20px rgba(16,39,64,0.14);
+      --radius: 12px;
+      --sidebar-width: 248px;
     }
 
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    body { font-family: 'Source Sans 3', 'Source Sans Pro', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    h1, h2, h3, h4, .page-title, .sidebar-brand h2, .login-logo h1, .balance-hero-value, .stat-value, .modal-title { font-family: 'Sora', sans-serif; }
 
     /* ── LOGIN ── */
-    #login-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, var(--primary-dark) 0%, #0a2e1a 100%); }
+    #login-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #102740 0%, #1F3C59 50%, #17324D 100%); }
     .login-box { background: var(--white); border-radius: 12px; padding: 48px 40px; width: 100%; max-width: 400px; box-shadow: var(--shadow-lg); }
     .login-logo { text-align: center; margin-bottom: 32px; }
-    .login-logo .star { font-size: 40px; margin-bottom: 8px; }
-    .login-logo h1 { font-size: 24px; font-weight: 700; color: var(--primary); }
+    .login-logo img { height: 48px; margin-bottom: 12px; }
+    .login-logo h1 { font-size: 22px; font-weight: 700; color: var(--text); }
     .login-logo p { font-size: 14px; color: var(--muted); margin-top: 4px; }
     .login-hint { text-align: center; font-size: 13px; color: var(--muted); margin-top: 20px; }
 
@@ -80,8 +87,8 @@
       color: rgba(255,255,255,0.6); font-size: 14px; cursor: pointer; margin-bottom: 2px;
       transition: all 0.15s; user-select: none;
     }
-    .nav-link:hover { background: rgba(255,255,255,0.07); color: #fff; }
-    .nav-link.active { background: var(--primary); color: #fff; }
+    .nav-link:hover { background: var(--sidebar-hover); color: #fff; }
+    .nav-link.active { background: var(--primary); color: #fff; border-left: 3px solid #fff; padding-left: 9px; }
     .nav-link .icon { font-size: 17px; flex-shrink: 0; }
     .sidebar-footer { padding: 12px 8px; border-top: 1px solid rgba(255,255,255,0.08); }
     .user-chip { display: flex; align-items: center; gap: 10px; padding: 8px; }
@@ -107,7 +114,7 @@
 
     /* ── BALANCE HERO ── */
     .balance-hero {
-      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      background: linear-gradient(135deg, var(--sidebar) 0%, #1F3C59 60%, #EF4465 100%);
       border-radius: 12px; padding: 28px 32px; margin-bottom: 24px; color: #fff;
       position: relative; overflow: hidden;
     }
@@ -245,7 +252,7 @@
 <div id="login-page">
   <div class="login-box">
     <div class="login-logo">
-      <div class="star">⭐</div>
+      <img src="https://framerusercontent.com/images/9JJ6Qwd40VS1r0DmwCVtnbmk.png" alt="Conexa Saúde" onerror="this.style.display='none'">
       <h1>Conexa Pontos</h1>
       <p>Plataforma de Reconhecimento e Recompensas</p>
     </div>
@@ -266,7 +273,7 @@
 </div>
 
 <!-- ════════════════ SET PASSWORD (shown after accepting invite) ════════════════ -->
-<div id="setpass-page" style="display:none; position:fixed; inset:0; background:linear-gradient(135deg,#006644 0%,#0a2e1a 100%); z-index:9999; align-items:center; justify-content:center;">
+<div id="setpass-page" style="display:none; position:fixed; inset:0; background:linear-gradient(135deg,#102740 0%,#1F3C59 100%); z-index:9999; align-items:center; justify-content:center;">
   <div class="login-box" style="max-width:420px;">
     <div class="login-logo">
       <div class="star">🔑</div>
@@ -293,7 +300,8 @@
   <!-- SIDEBAR -->
   <aside id="sidebar">
     <div class="sidebar-brand">
-      <h2>⭐ Conexa Pontos</h2>
+      <img src="https://framerusercontent.com/images/9JJ6Qwd40VS1r0DmwCVtnbmk.png" alt="Conexa Saúde" style="height:36px; filter:brightness(0) invert(1); margin-bottom:6px; display:block;" onerror="this.style.display='none'">
+      <h2 style="color:#fff; font-size:15px;">Conexa Pontos</h2>
       <p>Reconhecimento & Recompensas</p>
     </div>
     <nav class="sidebar-nav">
@@ -310,6 +318,12 @@
       <div class="nav-link" data-view="policy" onclick="goTo('policy')">
         <span class="icon">📄</span> Política do Programa
       </div>
+      <div class="nav-link" data-view="solicitar" onclick="goTo('solicitar')">
+        <span class="icon">📎</span> Solicitar Reconhecimento
+      </div>
+      <div class="nav-link" data-view="minhassolicitacoes" onclick="goTo('minhassolicitacoes')">
+        <span class="icon">📬</span> Minhas Solicitações
+      </div>
 
       <div id="adminNav" style="display:none">
         <div class="nav-label">Administração</div>
@@ -324,6 +338,9 @@
         </div>
         <div class="nav-link" data-view="reports" onclick="goTo('reports')">
           <span class="icon">📊</span> Relatórios
+        </div>
+        <div class="nav-link" data-view="solicitacoes" onclick="goTo('solicitacoes')">
+          <span class="icon">✅</span> Solicitações <span id="badgeSolic" style="display:none; background:#EF4465; color:#fff; border-radius:20px; font-size:11px; padding:1px 7px; margin-left:4px;"></span>
         </div>
       </div>
     </nav>
@@ -472,6 +489,77 @@
       <div id="reportsContent"><div class="center-msg"><div class="spinner"></div></div></div>
     </div>
 
+    <!-- ── VIEW: SOLICITAR RECONHECIMENTO ── -->
+    <div class="view" id="view-solicitar">
+      <div class="page-header">
+        <div>
+          <div class="page-title">📎 Solicitar Reconhecimento</div>
+          <div class="page-subtitle">Envie um comprovante de conquista para análise do RH</div>
+        </div>
+      </div>
+      <div style="max-width:620px;">
+        <div class="card">
+          <p style="font-size:14px; color:var(--muted); margin-bottom:20px; line-height:1.6;">
+            Realizou uma conquista que gera pontos mas ainda não foi registrada? Descreva o que fez, selecione a categoria e anexe um comprovante (print, certificado, etc.). O RH irá analisar e aprovar os pontos.
+          </p>
+          <div class="form-group">
+            <label>Categoria da conquista</label>
+            <select id="solic_categoria">
+              <option value="">Selecione...</option>
+              <option value="Desempenho e Metas">📊 Desempenho e Metas</option>
+              <option value="Capacitação e Desenvolvimento">📚 Capacitação e Desenvolvimento</option>
+              <option value="Cultura, Engajamento e Colaboração">🤝 Cultura, Engajamento e Colaboração</option>
+              <option value="Outro">Outro</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Descreva sua conquista</label>
+            <textarea id="solic_descricao" rows="4" placeholder="Ex: Concluí o treinamento de Excel Avançado (16h) no dia 15/05. Segue certificado em anexo..." style="width:100%; padding:9px 12px; border:2px solid var(--border); border-radius:var(--radius); font-size:14px; font-family:inherit; resize:vertical;"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Comprovante (imagem ou PDF)</label>
+            <input type="file" id="solic_arquivo" accept="image/*,.pdf" style="width:100%; padding:9px 12px; border:2px solid var(--border); border-radius:var(--radius); font-size:14px;">
+            <small>Formatos aceitos: JPG, PNG, PDF. Tamanho máximo: 5MB</small>
+          </div>
+          <button class="btn btn-primary" onclick="enviarSolicitacao()" id="btnEnviarSolic">📤 Enviar Solicitação</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── VIEW: MINHAS SOLICITAÇÕES ── -->
+    <div class="view" id="view-minhassolicitacoes">
+      <div class="page-header">
+        <div>
+          <div class="page-title">📬 Minhas Solicitações</div>
+          <div class="page-subtitle">Acompanhe o status das suas solicitações de reconhecimento</div>
+        </div>
+        <button class="btn btn-ghost" onclick="loadMinhasSolicitacoes()">🔄 Atualizar</button>
+      </div>
+      <div class="card">
+        <div id="minhasSolicContent"><div class="center-msg"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+    <!-- ── VIEW: SOLICITAÇÕES (ADMIN) ── -->
+    <div class="view" id="view-solicitacoes">
+      <div class="page-header">
+        <div>
+          <div class="page-title">✅ Solicitações de Reconhecimento</div>
+          <div class="page-subtitle">Revise e aprove conquistas enviadas pelos colaboradores</div>
+        </div>
+        <button class="btn btn-ghost" onclick="loadSolicitacoes()">🔄 Atualizar</button>
+      </div>
+      <div class="card">
+        <div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
+          <button class="btn btn-sm btn-ghost" onclick="filtrarSolic('pendente')" id="filtPendente" style="border-color:var(--warning); color:var(--warning);">⏳ Pendentes</button>
+          <button class="btn btn-sm btn-ghost" onclick="filtrarSolic('aprovado')">✅ Aprovadas</button>
+          <button class="btn btn-sm btn-ghost" onclick="filtrarSolic('reprovado')">❌ Reprovadas</button>
+          <button class="btn btn-sm btn-ghost" onclick="filtrarSolic('')">📋 Todas</button>
+        </div>
+        <div id="solicitacoesContent"><div class="center-msg"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
   </main>
 </div><!-- /app -->
 
@@ -574,6 +662,7 @@ async function bootUser(user) {
   document.getElementById('login-page').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   goTo('home');
+  setTimeout(() => carregarBadgeSolic(), 1500);
 }
 
 function showLogin() {
@@ -658,8 +747,11 @@ async function loadView(v) {
   if (v === 'policy')   return loadPolicy();
   if (v === 'emp')      return loadEmps();
   if (v === 'admcat')   return loadAdmCat();
-  if (v === 'admred')   return loadAdmRed();
-  if (v === 'reports')  return loadReports();
+  if (v === 'admred')          return loadAdmRed();
+  if (v === 'reports')         return loadReports();
+  if (v === 'solicitar')       return;
+  if (v === 'minhassolicitacoes') return loadMinhasSolicitacoes();
+  if (v === 'solicitacoes')    return loadSolicitacoes();
 }
 
 // ═══════════════════════════════════════════════
@@ -2145,6 +2237,206 @@ async function processImportPoints() {
   btn.textContent = 'Fechar';
   btn.disabled = false;
   btn.onclick = () => { closeModal(); loadEmps(); };
+}
+
+// ═══════════════════════════════════════════════
+// SOLICITAR RECONHECIMENTO
+// ═══════════════════════════════════════════════
+async function enviarSolicitacao() {
+  const categoria = document.getElementById('solic_categoria').value.trim();
+  const descricao = document.getElementById('solic_descricao').value.trim();
+  const arquivo = document.getElementById('solic_arquivo').files[0];
+  const btn = document.getElementById('btnEnviarSolic');
+
+  if (!categoria) { toast('Selecione a categoria da conquista.', 'err'); return; }
+  if (!descricao) { toast('Descreva sua conquista.', 'err'); return; }
+  if (!arquivo)   { toast('Anexe um comprovante (imagem ou PDF).', 'err'); return; }
+  if (arquivo.size > 5 * 1024 * 1024) { toast('Arquivo muito grande. Máximo 5MB.', 'err'); return; }
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Enviando…';
+
+  try {
+    // Upload do arquivo para Supabase Storage
+    const ext = arquivo.name.split('.').pop();
+    const path = `${curProfile.id}/${Date.now()}.${ext}`;
+    const { error: upErr } = await sb.storage.from('comprovantes').upload(path, arquivo, { upsert: false });
+    if (upErr) throw upErr;
+
+    // URL pública do arquivo
+    const { data: urlData } = sb.storage.from('comprovantes').getPublicUrl(path);
+    const arquivo_url = urlData.publicUrl;
+
+    // Inserir solicitação
+    const { error } = await sb.from('solicitacoes').insert({
+      employee_id: curProfile.id,
+      categoria,
+      descricao,
+      arquivo_url,
+      status: 'pendente'
+    });
+    if (error) throw error;
+
+    toast('✅ Solicitação enviada! O RH irá analisar em breve.');
+    document.getElementById('solic_categoria').value = '';
+    document.getElementById('solic_descricao').value = '';
+    document.getElementById('solic_arquivo').value = '';
+    carregarBadgeSolic();
+  } catch(e) {
+    toast('Erro ao enviar: ' + (e.message || e), 'err');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📤 Enviar Solicitação';
+  }
+}
+
+// ═══════════════════════════════════════════════
+// MINHAS SOLICITAÇÕES (colaborador)
+// ═══════════════════════════════════════════════
+async function loadMinhasSolicitacoes() {
+  const el = document.getElementById('minhasSolicContent');
+  el.innerHTML = '<div class="center-msg"><div class="spinner"></div></div>';
+
+  const { data, error } = await sb.from('solicitacoes')
+    .select('*')
+    .eq('employee_id', curProfile.id)
+    .order('created_at', { ascending: false });
+
+  if (error || !data?.length) {
+    el.innerHTML = '<div class="center-msg"><div class="big-icon">📬</div><p>Você ainda não enviou nenhuma solicitação.</p></div>';
+    return;
+  }
+
+  const statusBadge = s => ({
+    pendente:  '<span class="badge badge-yellow">⏳ Pendente</span>',
+    aprovado:  '<span class="badge badge-green">✅ Aprovado</span>',
+    reprovado: '<span class="badge badge-red">❌ Reprovado</span>',
+  }[s] || '<span class="badge badge-gray">' + s + '</span>');
+
+  el.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr><th>Data</th><th>Categoria</th><th>Descrição</th><th>Comprovante</th><th>Status</th><th>Obs. RH</th><th>Pontos</th></tr></thead>
+    <tbody>
+    ${data.map(r => `<tr>
+      <td>${new Date(r.created_at).toLocaleDateString('pt-BR')}</td>
+      <td>${escHtml(r.categoria)}</td>
+      <td style="max-width:200px;white-space:normal;">${escHtml(r.descricao)}</td>
+      <td>${r.arquivo_url ? `<a href="${escHtml(r.arquivo_url)}" target="_blank" style="color:var(--primary);">📎 Ver</a>` : '—'}</td>
+      <td>${statusBadge(r.status)}</td>
+      <td style="max-width:160px;white-space:normal;font-size:13px;color:var(--muted);">${escHtml(r.obs_rh || '—')}</td>
+      <td>${r.pontos_aprovados ? '<strong style="color:var(--primary);">+' + r.pontos_aprovados + ' pts</strong>' : '—'}</td>
+    </tr>`).join('')}
+    </tbody></table></div>`;
+}
+
+// ═══════════════════════════════════════════════
+// SOLICITAÇÕES (admin)
+// ═══════════════════════════════════════════════
+let _solicAll = [];
+let _solicFiltro = 'pendente';
+
+async function loadSolicitacoes() {
+  const el = document.getElementById('solicitacoesContent');
+  el.innerHTML = '<div class="center-msg"><div class="spinner"></div></div>';
+
+  const { data, error } = await sb.from('solicitacoes')
+    .select('*, profiles(name, email, area)')
+    .order('created_at', { ascending: false });
+
+  if (error) { el.innerHTML = '<div class="center-msg"><p>Erro ao carregar.</p></div>'; return; }
+  _solicAll = data || [];
+  renderSolicitacoes();
+  carregarBadgeSolic();
+}
+
+function filtrarSolic(status) {
+  _solicFiltro = status;
+  renderSolicitacoes();
+}
+
+function renderSolicitacoes() {
+  const el = document.getElementById('solicitacoesContent');
+  const lista = _solicFiltro ? _solicAll.filter(r => r.status === _solicFiltro) : _solicAll;
+
+  if (!lista.length) {
+    el.innerHTML = '<div class="center-msg"><div class="big-icon">✅</div><p>Nenhuma solicitação ' + (_solicFiltro === 'pendente' ? 'pendente' : 'encontrada') + '.</p></div>';
+    return;
+  }
+
+  const statusBadge = s => ({
+    pendente:  '<span class="badge badge-yellow">⏳ Pendente</span>',
+    aprovado:  '<span class="badge badge-green">✅ Aprovado</span>',
+    reprovado: '<span class="badge badge-red">❌ Reprovado</span>',
+  }[s] || '<span class="badge badge-gray">' + s + '</span>');
+
+  el.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr><th>Data</th><th>Colaborador</th><th>Categoria</th><th>Descrição</th><th>Comprovante</th><th>Status</th><th>Ação</th></tr></thead>
+    <tbody>
+    ${lista.map(r => `<tr>
+      <td>${new Date(r.created_at).toLocaleDateString('pt-BR')}</td>
+      <td><strong>${escHtml(r.profiles?.name || '—')}</strong><br><span style="font-size:12px;color:var(--muted);">${escHtml(r.profiles?.email || '')}</span></td>
+      <td>${escHtml(r.categoria)}</td>
+      <td style="max-width:200px;white-space:normal;font-size:13px;">${escHtml(r.descricao)}</td>
+      <td>${r.arquivo_url ? `<a href="${escHtml(r.arquivo_url)}" target="_blank" style="color:var(--primary);">📎 Ver</a>` : '—'}</td>
+      <td>${statusBadge(r.status)}</td>
+      <td>${r.status === 'pendente' ? `
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="btn btn-sm btn-primary" onclick="abrirAprovar('${r.id}','${escHtml(r.profiles?.name||'')}')">✅ Aprovar</button>
+          <button class="btn btn-sm btn-danger" onclick="reprovarSolic('${r.id}')">❌ Reprovar</button>
+        </div>` : `<span style="font-size:12px;color:var(--muted);">${r.obs_rh ? escHtml(r.obs_rh) : '—'}</span>${r.pontos_aprovados ? '<br><strong style="color:var(--primary);">+'+r.pontos_aprovados+' pts</strong>' : ''}`}
+      </td>
+    </tr>`).join('')}
+    </tbody></table></div>`;
+}
+
+function abrirAprovar(id, nome) {
+  openModal(`<div class="modal-title">✅ Aprovar Solicitação</div>
+    <p style="font-size:14px;color:var(--muted);margin-bottom:18px;">Colaborador: <strong>${escHtml(nome)}</strong></p>
+    <div class="form-group"><label>Pontos a conceder</label><input type="number" id="apr_pts" min="1" max="9999" placeholder="Ex: 100" style="width:100%;padding:9px 12px;border:2px solid var(--border);border-radius:var(--radius);font-size:14px;"></div>
+    <div class="form-group"><label>Observação (opcional)</label><input type="text" id="apr_obs" placeholder="Ex: Certificado validado." style="width:100%;padding:9px 12px;border:2px solid var(--border);border-radius:var(--radius);font-size:14px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="aprovarSolic('${id}')">✅ Confirmar Aprovação</button>
+    </div>`);
+}
+
+async function aprovarSolic(id) {
+  const pts = parseInt(document.getElementById('apr_pts')?.value);
+  const obs = document.getElementById('apr_obs')?.value.trim() || '';
+  if (!pts || pts < 1) { toast('Informe os pontos a conceder.', 'err'); return; }
+
+  const solic = _solicAll.find(r => r.id === id);
+  if (!solic) return;
+
+  const { error: upErr } = await sb.from('solicitacoes').update({ status: 'aprovado', pontos_aprovados: pts, obs_rh: obs, admin_id: curProfile.id }).eq('id', id);
+  if (upErr) { toast('Erro ao aprovar: ' + upErr.message, 'err'); return; }
+
+  // Creditar pontos ao colaborador
+  const { data: prof } = await sb.from('profiles').select('points_balance').eq('id', solic.employee_id).single();
+  const newBal = (prof?.points_balance || 0) + pts;
+  await sb.from('profiles').update({ points_balance: newBal }).eq('id', solic.employee_id);
+  await sb.from('point_transactions').insert({ employee_id: solic.employee_id, admin_id: curProfile.id, points: pts, description: `Solicitação aprovada: ${solic.categoria}`, type: 'credit' });
+
+  toast('✅ Solicitação aprovada e pontos creditados!');
+  closeModal();
+  loadSolicitacoes();
+}
+
+async function reprovarSolic(id) {
+  const obs = prompt('Motivo da reprovação (opcional):') ?? '';
+  const { error } = await sb.from('solicitacoes').update({ status: 'reprovado', obs_rh: obs, admin_id: curProfile.id }).eq('id', id);
+  if (error) { toast('Erro: ' + error.message, 'err'); return; }
+  toast('Solicitação reprovada.');
+  loadSolicitacoes();
+}
+
+async function carregarBadgeSolic() {
+  if (!curProfile?.is_admin) return;
+  const { count } = await sb.from('solicitacoes').select('id', { count: 'exact', head: true }).eq('status', 'pendente');
+  const badge = document.getElementById('badgeSolic');
+  if (badge) {
+    if (count > 0) { badge.textContent = count; badge.style.display = 'inline'; }
+    else { badge.style.display = 'none'; }
+  }
 }
 </script>
 </body>
