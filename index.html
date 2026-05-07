@@ -378,14 +378,26 @@
         <div class="balance-hero-value"><span id="balAmt">0</span><span>pts</span></div>
         <div class="balance-hero-name" id="balName"></div>
       </div>
-      <!-- Admin stats -->
-      <div class="stats-row" id="adminStats" style="display:none">
-        <div class="stat-card"><div class="stat-icon">👥</div><div class="stat-label">Funcionários</div><div class="stat-value" id="st1">—</div></div>
-        <div class="stat-card"><div class="stat-icon">⭐</div><div class="stat-label">Pontos Distribuídos</div><div class="stat-value" id="st2">—</div></div>
-        <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-label">Resgates Pendentes</div><div class="stat-value" id="st3">—</div></div>
-        <div class="stat-card"><div class="stat-icon">🎁</div><div class="stat-label">Prêmios no Catálogo</div><div class="stat-value" id="st4">—</div></div>
+      <!-- Admin shortcuts (shown only for admin) -->
+      <div id="adminShortcuts" style="display:none; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:16px; margin-bottom:24px;">
+        <div class="stat-card" onclick="goTo('emp')" style="cursor:pointer; transition:transform .15s, box-shadow .15s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='var(--shadow-lg)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+          <div class="stat-icon">👥</div><div class="stat-label">Funcionários</div><div style="font-size:13px; color:var(--muted); margin-top:6px;">Gerenciar equipe</div>
+        </div>
+        <div class="stat-card" onclick="goTo('reports')" style="cursor:pointer; transition:transform .15s, box-shadow .15s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='var(--shadow-lg)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+          <div class="stat-icon">📊</div><div class="stat-label">Relatórios</div><div style="font-size:13px; color:var(--muted); margin-top:6px;">Ver métricas e rankings</div>
+        </div>
+        <div class="stat-card" onclick="goTo('admred')" style="cursor:pointer; transition:transform .15s, box-shadow .15s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='var(--shadow-lg)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+          <div class="stat-icon">📋</div><div class="stat-label">Pedidos de Resgate</div><div style="font-size:13px; color:var(--muted); margin-top:6px;">Confirmar entregas</div>
+        </div>
+        <div class="stat-card" onclick="goTo('solicitacoes')" style="cursor:pointer; transition:transform .15s, box-shadow .15s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='var(--shadow-lg)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+          <div class="stat-icon">✅</div><div class="stat-label">Solicitações</div><div style="font-size:13px; color:var(--muted); margin-top:6px;">Revisar conquistas</div>
+        </div>
+        <div class="stat-card" onclick="goTo('admcat')" style="cursor:pointer; transition:transform .15s, box-shadow .15s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='var(--shadow-lg)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+          <div class="stat-icon">📝</div><div class="stat-label">Catálogo</div><div style="font-size:13px; color:var(--muted); margin-top:6px;">Gerenciar prêmios</div>
+        </div>
       </div>
-      <div class="card">
+      <!-- Employee recent transactions (hidden for admin) -->
+      <div id="homeRecentCard" class="card">
         <div class="card-title">📊 Últimas Movimentações</div>
         <div id="recentTx"><div class="center-msg"><div class="spinner"></div></div></div>
       </div>
@@ -769,12 +781,13 @@ async function loadHome() {
   document.getElementById('balName').textContent = `Olá, ${curProfile.name}! 👋`;
 
   if (curProfile.role === 'admin') {
-    document.getElementById('adminStats').style.display = 'grid';
-    loadAdminStats();
+    document.getElementById('adminShortcuts').style.display = 'grid';
+    document.getElementById('homeRecentCard').style.display = 'none';
   } else {
-    document.getElementById('adminStats').style.display = 'none';
+    document.getElementById('adminShortcuts').style.display = 'none';
+    document.getElementById('homeRecentCard').style.display = 'block';
+    loadRecentTx();
   }
-  loadRecentTx();
 }
 
 async function loadAdminStats() {
@@ -1860,7 +1873,7 @@ async function loadReports() {
   el.innerHTML = `<div class="center-msg"><div class="spinner"></div></div>`;
   document.getElementById('btnExportReport').style.display = 'none';
 
-  const [rankRed, rankPts, topProds, statsRes] = await Promise.all([
+  const [rankRed, rankPts, topProds, statsRes, recentTxRes] = await Promise.all([
     // Ranking por número de resgates (não cancelados)
     sb.from('redemptions')
       .select('employee_id, profiles!redemptions_employee_id_fkey(name, email, department)')
@@ -1878,7 +1891,13 @@ async function loadReports() {
       sb.from('redemptions').select('id', { count: 'exact' }).neq('status', 'cancelled'),
       sb.from('point_transactions').select('points').gt('points', 0),
       sb.from('profiles').select('id', { count: 'exact' }).eq('role', 'employee').eq('is_active', true),
-    ])
+      sb.from('redemptions').select('id', { count: 'exact' }).eq('status', 'pending'),
+      sb.from('products').select('id', { count: 'exact' }).eq('is_active', true),
+    ]),
+    // Últimas movimentações
+    sb.from('point_transactions')
+      .select('*, profiles!point_transactions_employee_id_fkey(name)')
+      .order('created_at', { ascending: false }).limit(15),
   ]);
 
   // Processa ranking de resgates
@@ -1914,7 +1933,7 @@ async function loadReports() {
     .sort((a, b) => b[1] - a[1]).slice(0, 5)
     .map(([id, cnt]) => ({ name: prodNames[id], count: cnt }));
 
-  const [totalRed, totalPtsRes, activeEmps] = statsRes;
+  const [totalRed, totalPtsRes, activeEmps, pendingRed, activeProds] = statsRes;
   const totalPts = (totalPtsRes.data || []).reduce((s, t) => s + t.points, 0);
 
   function rankBadge(i) {
@@ -1929,6 +1948,8 @@ async function loadReports() {
       <div class="stat-card"><div class="stat-icon">⭐</div><div class="stat-label">Total de Pontos Distribuídos</div><div class="stat-value">${fPts(totalPts)}</div></div>
       <div class="stat-card"><div class="stat-icon">🎁</div><div class="stat-label">Total de Resgates Realizados</div><div class="stat-value">${totalRed.count ?? 0}</div></div>
       <div class="stat-card"><div class="stat-icon">📊</div><div class="stat-label">Média de Pontos por Pessoa</div><div class="stat-value">${activeEmps.count ? fPts(Math.round(totalPts / activeEmps.count)) : '—'}</div></div>
+      <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-label">Resgates Pendentes</div><div class="stat-value">${pendingRed.count ?? 0}</div></div>
+      <div class="stat-card"><div class="stat-icon">🛍️</div><div class="stat-label">Prêmios no Catálogo</div><div class="stat-value">${activeProds.count ?? 0}</div></div>
     </div>
 
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:20px;margin-bottom:24px">
@@ -1968,7 +1989,7 @@ async function loadReports() {
     </div>
 
     <!-- Prêmios mais resgatados -->
-    <div class="card">
+    <div class="card" style="margin-bottom:20px">
       <div class="card-title">🎁 Prêmios Mais Resgatados</div>
       ${topProdsList.length === 0 ? html_empty('🎁', 'Nenhum resgate ainda') : `
       <div class="table-wrap"><table>
@@ -1977,6 +1998,21 @@ async function loadReports() {
           <td>${rankBadge(i)}</td>
           <td><strong>${escHtml(p.name)}</strong></td>
           <td style="text-align:center"><span class="badge badge-blue">${p.count} vez${p.count !== 1 ? 'es' : ''}</span></td>
+        </tr>`).join('')}</tbody>
+      </table></div>`}
+    </div>
+
+    <!-- Últimas movimentações -->
+    <div class="card">
+      <div class="card-title">📊 Últimas Movimentações</div>
+      ${!recentTxRes.data || recentTxRes.data.length === 0 ? html_empty('📊', 'Nenhuma movimentação ainda') : `
+      <div class="table-wrap"><table>
+        <thead><tr><th>Funcionário</th><th>Descrição</th><th>Pontos</th><th>Data</th></tr></thead>
+        <tbody>${(recentTxRes.data || []).map(t => `<tr>
+          <td>${escHtml(t.profiles?.name || '—')}</td>
+          <td>${escHtml(t.description || '—')}</td>
+          <td class="${t.points > 0 ? 'txt-green' : 'txt-red'}">${t.points > 0 ? '+' : ''}${fPts(t.points)} pts</td>
+          <td class="txt-muted">${fDate(t.created_at)}</td>
         </tr>`).join('')}</tbody>
       </table></div>`}
     </div>
