@@ -1494,10 +1494,11 @@ async function getAdminEmails() {
 
 async function sendSolicEmail(categoria, descricao) {
   try {
+    const token = (await sb.auth.getSession()).data.session?.access_token;
     const to_emails = await getAdminEmails();
     await fetch(`${CFG.edgeFnBaseUrl}/send-email`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': CFG.supabaseAnonKey },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
       body: JSON.stringify({
         type: 'solicitacao',
         to_emails,
@@ -1513,10 +1514,11 @@ async function sendSolicEmail(categoria, descricao) {
 
 async function sendRedeemEmail(productName, pointsCost) {
   try {
+    const token = (await sb.auth.getSession()).data.session?.access_token;
     const to_emails = await getAdminEmails();
     await fetch(`${CFG.edgeFnBaseUrl}/send-email`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': CFG.supabaseAnonKey },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
       body: JSON.stringify({
         type: 'resgate',
         to_emails,
