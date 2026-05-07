@@ -603,7 +603,9 @@ let recoveryMode = false;
 // BOOT
 // ═══════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', async () => {
-  sb = supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey);
+  sb = supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey, {
+    auth: { flowType: 'implicit', detectSessionInUrl: true }
+  });
 
   // ── Configura listener ANTES de tudo para capturar PASSWORD_RECOVERY ──
   sb.auth.onAuthStateChange(async (ev, sess) => {
@@ -617,16 +619,19 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (ev === 'SIGNED_OUT') { curUser = null; curProfile = null; recoveryMode = false; showLogin(); }
   });
 
-  // ── Detecta parâmetros no hash da URL (retorno do Supabase Auth) ──
+  // ── Detecta parâmetros no hash da URL (implicit flow) ──
   const rawHash = window.location.hash;
   const hashParams = new URLSearchParams(rawHash.replace(/^#/, ''));
-  const urlError      = hashParams.get('error_code') || hashParams.get('error');
-  const urlType       = hashParams.get('type');
-  const urlTokenHash  = hashParams.get('token');
+  const urlError       = hashParams.get('error_code') || hashParams.get('error');
+  const urlType        = hashParams.get('type');
+  const urlTokenHash   = hashParams.get('token');
   const urlAccessToken = hashParams.get('access_token');
 
-  // Limpa o hash da barra de endereços para não reprocessar
-  if (rawHash) history.replaceState(null, '', window.location.pathname);
+  // ── Detecta código PKCE na query string (fallback) ──
+  const pkceCode = new URLSearchParams(window.location.search).get('code');
+
+  // Limpa a URL para não reprocessar (mantém pathname, remove hash e code)
+  if (rawHash || pkceCode) history.replaceState(null, '', window.location.pathname);
 
   // ── Caso 1: Erro no link (ex: link antigo/expirado) ──
   if (urlError) {
@@ -674,12 +679,20 @@ window.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  // ── Caso 4: Sessão já existente (login normal) ──
+  // ── Caso 4: PKCE code na URL → aguarda onAuthStateChange ──
+  if (pkceCode) {
+    // SDK processa o código automaticamente e dispara PASSWORD_RECOVERY ou SIGNED_IN
+    showLogin();
+    return;
+  }
+
+  // ── Caso 5: Sessão já existente (login normal) ──
   if (!recoveryMode) {
     const { data: { session } } = await sb.auth.getSession();
-    if (session) {
+    // Dupla verificação: recoveryMode pode ter mudado durante o await
+    if (!recoveryMode && session) {
       await bootUser(session.user);
-    } else {
+    } else if (!recoveryMode) {
       showLogin();
     }
   }
