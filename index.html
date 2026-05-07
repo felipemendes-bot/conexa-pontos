@@ -1490,6 +1490,27 @@ async function updateRedStatus(id, newStatus) {
 // ═══════════════════════════════════════════════
 // EMAIL NOTIFICATION
 // ═══════════════════════════════════════════════
+async function sendSolicEmail(categoria, descricao) {
+  try {
+    if (!window.emailjs || CFG.emailjsPublicKey.startsWith('COLE')) return;
+    const { data: admins } = await sb.from('profiles')
+      .select('email').eq('role', 'admin').eq('is_active', true);
+    const emailList = (admins || []).map(a => a.email).filter(Boolean);
+    if (emailList.length === 0) emailList.push(CFG.adminEmail);
+    const params = {
+      employee_name:  curProfile.name,
+      employee_email: curProfile.email || '',
+      employee_dept:  curProfile.department || 'Não informado',
+      product_name:   '📎 Nova Solicitação: ' + categoria,
+      points_cost:    descricao.length > 100 ? descricao.substring(0, 100) + '…' : descricao,
+      date:           new Date().toLocaleString('pt-BR'),
+    };
+    for (const email of emailList) {
+      await emailjs.send(CFG.emailjsServiceId, CFG.emailjsTemplateId, { ...params, to_email: email });
+    }
+  } catch (err) { console.warn('Email de solicitação não enviado:', err); }
+}
+
 async function sendRedeemEmail(productName, pointsCost) {
   try {
     if (!window.emailjs || CFG.emailjsPublicKey.startsWith('COLE')) return;
@@ -2319,6 +2340,7 @@ async function enviarSolicitacao() {
     if (error) throw error;
 
     toast('✅ Solicitação enviada! O RH irá analisar em breve.');
+    sendSolicEmail(categoria, descricao);
     document.getElementById('solic_categoria').value = '';
     document.getElementById('solic_descricao').value = '';
     document.getElementById('solic_arquivo').value = '';
@@ -2380,7 +2402,7 @@ async function loadSolicitacoes() {
   el.innerHTML = '<div class="center-msg"><div class="spinner"></div></div>';
 
   const { data, error } = await sb.from('solicitacoes')
-    .select('*, profiles(name, email, area)')
+    .select('*, profiles!solicitacoes_employee_id_fkey(name, email, department)')
     .order('created_at', { ascending: false });
 
   if (error) { el.innerHTML = '<div class="center-msg"><p>Erro ao carregar.</p></div>'; return; }
