@@ -653,6 +653,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
 
   sb.auth.onAuthStateChange(async (ev, sess) => {
+    if (ev === 'PASSWORD_RECOVERY') { showSetPassPage(sess.user, 'recovery'); return; }
     if (ev === 'SIGNED_IN' && sess && !curUser) await bootUser(sess.user);
     if (ev === 'USER_UPDATED' && sess && curUser === null) await bootUser(sess.user);
     if (ev === 'SIGNED_OUT') { curUser = null; curProfile = null; showLogin(); }
