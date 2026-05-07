@@ -270,6 +270,9 @@
       <button type="submit" class="btn btn-primary btn-full" id="btnLogin">Entrar</button>
     </form>
     <div id="loginBanner" style="display:none; margin-top:16px; padding:12px 16px; border-radius:8px; font-size:14px; line-height:1.5;"></div>
+    <p style="text-align:center; margin-top:14px; font-size:13px;">
+      <a href="#" onclick="showForgotPassword(event)" style="color:var(--primary); text-decoration:none;">Esqueci minha senha</a>
+    </p>
     <p class="login-hint">Problemas de acesso? Fale com o RH.</p>
   </div>
 </div>
@@ -279,8 +282,8 @@
   <div class="login-box" style="max-width:420px;">
     <div class="login-logo">
       <div class="star">🔑</div>
-      <h1>Criar Senha</h1>
-      <p>Bem-vindo! Defina sua senha para continuar.</p>
+      <h1 id="setPassTitle">Criar Senha</h1>
+      <p id="setPassSubtitle">Bem-vindo! Defina sua senha para continuar.</p>
     </div>
     <form id="setPassForm">
       <div class="form-group">
@@ -636,7 +639,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         'err'
       );
     } else if (data?.user) {
-      showSetPassPage(data.user);
+      showSetPassPage(data.user, urlType);
     }
     return;
   }
@@ -694,9 +697,13 @@ function showLoginBanner(msg, type) {
   }
 }
 
-function showSetPassPage(user) {
+function showSetPassPage(user, type) {
   document.getElementById('login-page').style.display = 'none';
   document.getElementById('app').style.display = 'none';
+  if (type === 'recovery') {
+    document.getElementById('setPassTitle').textContent = 'Redefinir Senha';
+    document.getElementById('setPassSubtitle').textContent = 'Digite sua nova senha para continuar.';
+  }
   const sp = document.getElementById('setpass-page');
   sp.style.display = 'flex';
 }
@@ -739,6 +746,52 @@ document.getElementById('loginForm').addEventListener('submit', async e => {
 
 async function doSignOut() {
   await sb.auth.signOut();
+}
+
+// ── Esqueci minha senha (tela de login) ──
+function showForgotPassword(e) {
+  e.preventDefault();
+  openModal(`<div class="modal-title">🔑 Redefinir Senha</div>
+    <p style="font-size:14px;color:var(--muted);margin-bottom:16px;">Digite seu e-mail e enviaremos um link para você criar uma nova senha.</p>
+    <div class="form-group">
+      <label>E-mail</label>
+      <input type="email" id="resetEmail" placeholder="seu@email.com" style="width:100%;padding:9px 12px;border:2px solid var(--border);border-radius:var(--radius);font-size:14px;">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="enviarResetSenha()">📧 Enviar link</button>
+    </div>`);
+}
+
+async function enviarResetSenha() {
+  const email = document.getElementById('resetEmail')?.value.trim();
+  if (!email) { toast('Informe o e-mail.', 'err'); return; }
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: 'https://conexa-pontos.vercel.app'
+  });
+  if (error) { toast('Erro ao enviar: ' + error.message, 'err'); return; }
+  closeModal();
+  showLoginBanner('✅ Link de redefinição enviado! Verifique seu e-mail.', 'ok');
+}
+
+// ── Reset de senha pelo admin ──
+async function resetSenha(email, nome) {
+  openModal(`<div class="modal-title">🔑 Redefinir Senha</div>
+    <p style="font-size:14px;color:var(--muted);">Deseja enviar um link de redefinição de senha para <strong>${escHtml(nome)}</strong>?</p>
+    <p style="font-size:13px;color:var(--muted);margin-top:8px;">O colaborador receberá um e-mail com o link para criar uma nova senha.</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarResetSenha('${escJs(email)}','${escJs(nome)}')">📧 Enviar link</button>
+    </div>`);
+}
+
+async function confirmarResetSenha(email, nome) {
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: 'https://conexa-pontos.vercel.app'
+  });
+  if (error) { toast('Erro ao enviar: ' + error.message, 'err'); return; }
+  closeModal();
+  toast(`✅ Link de redefinição enviado para ${nome}!`);
 }
 
 // ═══════════════════════════════════════════════
@@ -980,6 +1033,7 @@ function renderEmpsTable(list) {
             ? `<button class="btn btn-ghost btn-sm" style="color:var(--warning);border-color:var(--warning)" onclick="confirmToggleEmp('${e.id}','${escJs(e.name)}',false)">🚫 Desativar</button>`
             : `<button class="btn btn-ghost btn-sm" style="color:var(--success);border-color:var(--success)" onclick="confirmToggleEmp('${e.id}','${escJs(e.name)}',true)">✅ Reativar</button>`
           }
+          ${!isMe && ativo ? `<button class="btn btn-ghost btn-sm" style="color:var(--info);border-color:var(--info)" onclick="resetSenha('${escJs(e.email||'')}','${escJs(e.name)}')">🔑 Reset senha</button>` : ''}
           ${isMe ? '' : `<button class="btn btn-danger btn-sm" onclick="confirmDeleteEmp('${e.id}','${escJs(e.name)}')">🗑️</button>`}
         </div>
       </td>
