@@ -597,6 +597,7 @@ const CFG = {
 // GLOBALS
 // ═══════════════════════════════════════════════
 let sb, curUser, curProfile, allEmps = [];
+let recoveryMode = false;
 
 // ═══════════════════════════════════════════════
 // BOOT
@@ -606,10 +607,14 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   // ── Configura listener ANTES de tudo para capturar PASSWORD_RECOVERY ──
   sb.auth.onAuthStateChange(async (ev, sess) => {
-    if (ev === 'PASSWORD_RECOVERY') { showSetPassPage(sess?.user, 'recovery'); return; }
-    if (ev === 'SIGNED_IN' && sess && !curUser) await bootUser(sess.user);
-    if (ev === 'USER_UPDATED' && sess && curUser === null) await bootUser(sess.user);
-    if (ev === 'SIGNED_OUT') { curUser = null; curProfile = null; showLogin(); }
+    if (ev === 'PASSWORD_RECOVERY') {
+      recoveryMode = true;
+      showSetPassPage(sess?.user, 'recovery');
+      return;
+    }
+    if (ev === 'SIGNED_IN' && sess && !curUser && !recoveryMode) await bootUser(sess.user);
+    if (ev === 'USER_UPDATED' && sess && curUser === null && !recoveryMode) await bootUser(sess.user);
+    if (ev === 'SIGNED_OUT') { curUser = null; curProfile = null; recoveryMode = false; showLogin(); }
   });
 
   // ── Detecta parâmetros no hash da URL (retorno do Supabase Auth) ──
@@ -633,10 +638,21 @@ window.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  // ── Caso 2: Reset de senha via access_token no hash ──
+  // ── Caso 2: Reset de senha via access_token no hash (implicit flow) ──
   if (urlAccessToken && urlType === 'recovery') {
-    showLogin(); // mostra tela enquanto o SDK processa os tokens
-    // O evento PASSWORD_RECOVERY será disparado pelo onAuthStateChange acima
+    recoveryMode = true; // bloqueia SIGNED_IN de chamar bootUser
+    const refreshToken = hashParams.get('refresh_token');
+    const { data, error } = await sb.auth.setSession({
+      access_token: urlAccessToken,
+      refresh_token: refreshToken || ''
+    });
+    if (!error && data?.user) {
+      showSetPassPage(data.user, 'recovery');
+    } else {
+      recoveryMode = false;
+      showLogin();
+      showLoginBanner('⏰ O link de redefinição expirou. Solicite um novo.', 'err');
+    }
     return;
   }
 
@@ -659,11 +675,13 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
 
   // ── Caso 4: Sessão já existente (login normal) ──
-  const { data: { session } } = await sb.auth.getSession();
-  if (session) {
-    await bootUser(session.user);
-  } else {
-    showLogin();
+  if (!recoveryMode) {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) {
+      await bootUser(session.user);
+    } else {
+      showLogin();
+    }
   }
 });
 
@@ -733,6 +751,7 @@ document.getElementById('setPassForm').addEventListener('submit', async e => {
     return;
   }
   // Senha definida → carregar perfil e entrar
+  recoveryMode = false;
   const { data: { user } } = await sb.auth.getUser();
   document.getElementById('setpass-page').style.display = 'none';
   await bootUser(user);
