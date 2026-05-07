@@ -8,7 +8,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -589,10 +588,6 @@ const CFG = {
   supabaseAnonKey:   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp4a3FodHJpenNvZ2Nvd3h5d3BwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1NjAyNjMsImV4cCI6MjA5MzEzNjI2M30.de3y65fSZfGR5J2vntw4C8bAJqgj0yXblGcCnm42fEo',
   edgeFnBaseUrl:     'https://zxkqhtrizsogcowxywpp.supabase.co/functions/v1',
   adminEmail:        'felipe.mendes@conexasaude.com.br',
-  emailjsPublicKey:  'SIiUTLAn87CIZLCaR',
-  emailjsServiceId:  'service_phedqwk',
-  emailjsTemplateId: 'template_0bs2228',
-  emailjsSolicTemplateId: 'template_0x8fjxh',
 };
 
 // ═══════════════════════════════════════════════
@@ -605,7 +600,6 @@ let sb, curUser, curProfile, allEmps = [];
 // ═══════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', async () => {
   sb = supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey);
-  if (window.emailjs) emailjs.init(CFG.emailjsPublicKey);
 
   // ── Detecta parâmetros no hash da URL (retorno do Supabase Auth) ──
   const rawHash = window.location.hash;
@@ -1491,47 +1485,48 @@ async function updateRedStatus(id, newStatus) {
 // ═══════════════════════════════════════════════
 // EMAIL NOTIFICATION
 // ═══════════════════════════════════════════════
+async function getAdminEmails() {
+  const { data: admins } = await sb.from('profiles')
+    .select('email').eq('role', 'admin').eq('is_active', true);
+  const list = (admins || []).map(a => a.email).filter(Boolean);
+  return list.length > 0 ? list : [CFG.adminEmail];
+}
+
 async function sendSolicEmail(categoria, descricao) {
   try {
-    if (!window.emailjs || CFG.emailjsPublicKey.startsWith('COLE')) return;
-    const { data: admins } = await sb.from('profiles')
-      .select('email').eq('role', 'admin').eq('is_active', true);
-    const emailList = (admins || []).map(a => a.email).filter(Boolean);
-    if (emailList.length === 0) emailList.push(CFG.adminEmail);
-    const params = {
-      employee_name:  curProfile.name,
-      employee_email: curProfile.email || '',
-      employee_dept:  curProfile.department || 'Não informado',
-      product_name:   '📎 Nova Solicitação: ' + categoria,
-      points_cost:    descricao.length > 100 ? descricao.substring(0, 100) + '…' : descricao,
-      date:           new Date().toLocaleString('pt-BR'),
-    };
-    for (const email of emailList) {
-      await emailjs.send(CFG.emailjsServiceId, CFG.emailjsSolicTemplateId, { ...params, to_email: email });
-    }
+    const to_emails = await getAdminEmails();
+    await fetch(`${CFG.edgeFnBaseUrl}/send-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': CFG.supabaseAnonKey },
+      body: JSON.stringify({
+        type: 'solicitacao',
+        to_emails,
+        employee_name:  curProfile.name,
+        employee_email: curProfile.email || '',
+        employee_dept:  curProfile.department || 'Não informado',
+        detail: { categoria, descricao },
+        date: new Date().toLocaleString('pt-BR'),
+      })
+    });
   } catch (err) { console.warn('Email de solicitação não enviado:', err); }
 }
 
 async function sendRedeemEmail(productName, pointsCost) {
   try {
-    if (!window.emailjs || CFG.emailjsPublicKey.startsWith('COLE')) return;
-    // Busca todos os admins para notificar
-    const { data: admins } = await sb.from('profiles')
-      .select('email').eq('role', 'admin').eq('is_active', true);
-    const emailList = (admins || []).map(a => a.email).filter(Boolean);
-    if (emailList.length === 0) emailList.push(CFG.adminEmail);
-    const params = {
-      employee_name:  curProfile.name,
-      employee_email: curProfile.email || '',
-      employee_dept:  curProfile.department || 'Não informado',
-      product_name:   productName,
-      points_cost:    fPts(pointsCost) + ' pts',
-      date:           new Date().toLocaleString('pt-BR'),
-    };
-    // Envia para cada admin
-    for (const email of emailList) {
-      await emailjs.send(CFG.emailjsServiceId, CFG.emailjsTemplateId, { ...params, to_email: email });
-    }
+    const to_emails = await getAdminEmails();
+    await fetch(`${CFG.edgeFnBaseUrl}/send-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': CFG.supabaseAnonKey },
+      body: JSON.stringify({
+        type: 'resgate',
+        to_emails,
+        employee_name:  curProfile.name,
+        employee_email: curProfile.email || '',
+        employee_dept:  curProfile.department || 'Não informado',
+        detail: productName + ' — ' + fPts(pointsCost) + ' pts',
+        date: new Date().toLocaleString('pt-BR'),
+      })
+    });
   } catch (err) { console.warn('Email não enviado:', err); }
 }
 
