@@ -604,12 +604,21 @@ let sb, curUser, curProfile, allEmps = [];
 window.addEventListener('DOMContentLoaded', async () => {
   sb = supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey);
 
+  // ── Configura listener ANTES de tudo para capturar PASSWORD_RECOVERY ──
+  sb.auth.onAuthStateChange(async (ev, sess) => {
+    if (ev === 'PASSWORD_RECOVERY') { showSetPassPage(sess?.user, 'recovery'); return; }
+    if (ev === 'SIGNED_IN' && sess && !curUser) await bootUser(sess.user);
+    if (ev === 'USER_UPDATED' && sess && curUser === null) await bootUser(sess.user);
+    if (ev === 'SIGNED_OUT') { curUser = null; curProfile = null; showLogin(); }
+  });
+
   // ── Detecta parâmetros no hash da URL (retorno do Supabase Auth) ──
   const rawHash = window.location.hash;
   const hashParams = new URLSearchParams(rawHash.replace(/^#/, ''));
   const urlError      = hashParams.get('error_code') || hashParams.get('error');
   const urlType       = hashParams.get('type');
-  const urlTokenHash  = hashParams.get('token');  // token_hash (formato seguro anti-scanner)
+  const urlTokenHash  = hashParams.get('token');
+  const urlAccessToken = hashParams.get('access_token');
 
   // Limpa o hash da barra de endereços para não reprocessar
   if (rawHash) history.replaceState(null, '', window.location.pathname);
@@ -624,11 +633,16 @@ window.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  // ── Caso 2: Novo formato de convite com token_hash ──
-  // URL: https://conexa-pontos.netlify.app/#token=TOKEN&type=invite
-  // Vantagem: scanners de e-mail corporativo NÃO conseguem consumir este token
+  // ── Caso 2: Reset de senha via access_token no hash ──
+  if (urlAccessToken && urlType === 'recovery') {
+    showLogin(); // mostra tela enquanto o SDK processa os tokens
+    // O evento PASSWORD_RECOVERY será disparado pelo onAuthStateChange acima
+    return;
+  }
+
+  // ── Caso 3: Convite com token_hash ──
   if (urlTokenHash && (urlType === 'invite' || urlType === 'recovery')) {
-    showLogin(); // mostra tela enquanto verifica
+    showLogin();
     const { data, error } = await sb.auth.verifyOtp({
       token_hash: urlTokenHash,
       type: urlType,
@@ -644,20 +658,13 @@ window.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  // ── Caso 3: Sessão já existente (login normal) ──
+  // ── Caso 4: Sessão já existente (login normal) ──
   const { data: { session } } = await sb.auth.getSession();
   if (session) {
     await bootUser(session.user);
   } else {
     showLogin();
   }
-
-  sb.auth.onAuthStateChange(async (ev, sess) => {
-    if (ev === 'PASSWORD_RECOVERY') { showSetPassPage(sess.user, 'recovery'); return; }
-    if (ev === 'SIGNED_IN' && sess && !curUser) await bootUser(sess.user);
-    if (ev === 'USER_UPDATED' && sess && curUser === null) await bootUser(sess.user);
-    if (ev === 'SIGNED_OUT') { curUser = null; curProfile = null; showLogin(); }
-  });
 });
 
 async function bootUser(user) {
