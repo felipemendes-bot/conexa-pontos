@@ -592,6 +592,7 @@ const CFG = {
   emailjsPublicKey:  'SIiUTLAn87CIZLCaR',
   emailjsServiceId:  'service_phedqwk',
   emailjsTemplateId: 'template_0bs2228',
+  emailjsSolicTemplateId: 'template_0x8fjxh',
 };
 
 // ═══════════════════════════════════════════════
@@ -1506,7 +1507,7 @@ async function sendSolicEmail(categoria, descricao) {
       date:           new Date().toLocaleString('pt-BR'),
     };
     for (const email of emailList) {
-      await emailjs.send(CFG.emailjsServiceId, CFG.emailjsTemplateId, { ...params, to_email: email });
+      await emailjs.send(CFG.emailjsServiceId, CFG.emailjsSolicTemplateId, { ...params, to_email: email });
     }
   } catch (err) { console.warn('Email de solicitação não enviado:', err); }
 }
