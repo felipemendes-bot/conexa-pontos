@@ -1564,6 +1564,22 @@ function fPts(n) { return (n || 0).toLocaleString('pt-BR'); }
 function fDate(s) { return new Date(s).toLocaleDateString('pt-BR'); }
 function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function escJs(s)   { return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+
+async function downloadArquivo(url) {
+  try {
+    const resp = await fetch(url);
+    const blob = await resp.blob();
+    const ext  = url.split('.').pop().split('?')[0] || 'arquivo';
+    const name = 'comprovante.' + ext;
+    const a    = document.createElement('a');
+    a.href     = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+  } catch(e) { toast('Erro ao baixar o arquivo.', 'err'); }
+}
 function html_empty(icon, msg) {
   return `<div class="center-msg"><div class="big-icon">${icon}</div><p>${msg}</p></div>`;
 }
@@ -2384,7 +2400,7 @@ async function loadMinhasSolicitacoes() {
       <td>${new Date(r.created_at).toLocaleDateString('pt-BR')}</td>
       <td>${escHtml(r.categoria)}</td>
       <td style="max-width:200px;white-space:normal;">${escHtml(r.descricao)}</td>
-      <td>${r.arquivo_url ? `<a href="${escHtml(r.arquivo_url)}" target="_blank" style="color:var(--primary);">📎 Ver</a>` : '—'}</td>
+      <td>${r.arquivo_url ? `<div style="display:flex;gap:8px;align-items:center;"><a href="${escHtml(r.arquivo_url)}" target="_blank" style="color:var(--primary);font-size:13px;">📎 Ver</a><button onclick="downloadArquivo('${escJs(r.arquivo_url)}')" class="btn btn-sm btn-ghost" style="padding:3px 8px;font-size:12px;">⬇️ Baixar</button></div>` : '—'}</td>
       <td>${statusBadge(r.status)}</td>
       <td style="max-width:160px;white-space:normal;font-size:13px;color:var(--muted);">${escHtml(r.obs_rh || '—')}</td>
       <td>${r.pontos_aprovados ? '<strong style="color:var(--primary);">+' + r.pontos_aprovados + ' pts</strong>' : '—'}</td>
@@ -2440,7 +2456,7 @@ function renderSolicitacoes() {
       <td><strong>${escHtml(r.profiles?.name || '—')}</strong><br><span style="font-size:12px;color:var(--muted);">${escHtml(r.profiles?.email || '')}</span></td>
       <td>${escHtml(r.categoria)}</td>
       <td style="max-width:200px;white-space:normal;font-size:13px;">${escHtml(r.descricao)}</td>
-      <td>${r.arquivo_url ? `<a href="${escHtml(r.arquivo_url)}" target="_blank" style="color:var(--primary);">📎 Ver</a>` : '—'}</td>
+      <td>${r.arquivo_url ? `<div style="display:flex;gap:8px;align-items:center;"><a href="${escHtml(r.arquivo_url)}" target="_blank" style="color:var(--primary);font-size:13px;">📎 Ver</a><button onclick="downloadArquivo('${escJs(r.arquivo_url)}')" class="btn btn-sm btn-ghost" style="padding:3px 8px;font-size:12px;">⬇️ Baixar</button></div>` : '—'}</td>
       <td>${statusBadge(r.status)}</td>
       <td>${r.status === 'pendente' ? `
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
