@@ -604,9 +604,7 @@ let recoveryMode = false;
 // BOOT
 // ═══════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', async () => {
-  sb = supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey, {
-    auth: { flowType: 'implicit', detectSessionInUrl: true }
-  });
+  sb = supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey);
 
   // ── Configura listener ANTES de tudo para capturar PASSWORD_RECOVERY ──
   sb.auth.onAuthStateChange(async (ev, sess) => {
@@ -724,6 +722,9 @@ function showLogin() {
   document.getElementById('login-page').style.display = 'flex';
   document.getElementById('app').style.display = 'none';
   document.getElementById('setpass-page').style.display = 'none';
+  // Garante que o botão de login nunca fique travado
+  const btn = document.getElementById('btnLogin');
+  if (btn) { btn.disabled = false; btn.textContent = 'Entrar'; }
 }
 
 function showLoginBanner(msg, type) {
@@ -778,11 +779,17 @@ document.getElementById('loginForm').addEventListener('submit', async e => {
   e.preventDefault();
   const btn = document.getElementById('btnLogin');
   btn.disabled = true; btn.textContent = 'Entrando…';
-  const { error } = await sb.auth.signInWithPassword({
+  const { data, error } = await sb.auth.signInWithPassword({
     email: document.getElementById('fEmail').value.trim(),
     password: document.getElementById('fPass').value
   });
-  if (error) { toast('E-mail ou senha incorretos.', 'err'); btn.disabled = false; btn.textContent = 'Entrar'; }
+  if (error) {
+    toast('E-mail ou senha incorretos.', 'err');
+    btn.disabled = false; btn.textContent = 'Entrar';
+    return;
+  }
+  // Chama bootUser diretamente após login bem-sucedido
+  if (data?.user) await bootUser(data.user);
 });
 
 async function doSignOut() {
