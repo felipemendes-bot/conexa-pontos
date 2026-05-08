@@ -779,17 +779,11 @@ document.getElementById('loginForm').addEventListener('submit', async e => {
   e.preventDefault();
   const btn = document.getElementById('btnLogin');
   btn.disabled = true; btn.textContent = 'Entrando…';
-  const { data, error } = await sb.auth.signInWithPassword({
+  const { error } = await sb.auth.signInWithPassword({
     email: document.getElementById('fEmail').value.trim(),
     password: document.getElementById('fPass').value
   });
-  if (error) {
-    toast('E-mail ou senha incorretos.', 'err');
-    btn.disabled = false; btn.textContent = 'Entrar';
-    return;
-  }
-  // Chama bootUser diretamente após login bem-sucedido
-  if (data?.user) await bootUser(data.user);
+  if (error) { toast('E-mail ou senha incorretos.', 'err'); btn.disabled = false; btn.textContent = 'Entrar'; }
 });
 
 async function doSignOut() {
