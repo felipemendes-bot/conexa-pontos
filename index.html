@@ -615,13 +615,23 @@ window.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  // Timeout de segurança: se o boot travar (ex: refresh de sessão antiga preso),
-  // limpa o localStorage e mostra a tela de login após 6 segundos
+  // Timeout de segurança: se o boot travar (sessão antiga presa no refresh do token),
+  // recarrega a página com localStorage limpo para criar contexto JavaScript novo.
+  // A recarga mata qualquer requisição HTTP travada e o Supabase reinicia sem a sessão.
   _initTimeout = setTimeout(() => {
-    console.warn('[CP] boot timeout — clearing session and showing login');
-    localStorage.clear();
-    showLogin();
-  }, 6000);
+    console.warn('[CP] boot timeout — limpando sessão e recarregando página');
+    try { if (sb) sb.auth.stopAutoRefresh(); } catch (_) {}
+    if (!sessionStorage.getItem('cp_boot_retry')) {
+      // Primeira tentativa: recarrega a página (mata o refresh travado)
+      sessionStorage.setItem('cp_boot_retry', '1');
+      localStorage.clear();
+      window.location.reload();
+    } else {
+      // Segunda tentativa também travou (raro): só mostra o login
+      localStorage.clear();
+      showLogin();
+    }
+  }, 5000);
 
   // Limpa sessões incompatíveis de versões anteriores (executa só uma vez por versão)
   if (localStorage.getItem('cp_sv') !== 'v4') {
@@ -633,8 +643,9 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   // ── Configura listener ANTES de tudo para capturar PASSWORD_RECOVERY ──
   sb.auth.onAuthStateChange(async (ev, sess) => {
+    console.log('[CP auth]', ev, '| sess:', !!sess, '| curUser:', !!curUser, '| _recoveryMode:', _recoveryMode);
     if (ev === 'PASSWORD_RECOVERY') {
-      _recoveryMode = true;                      // bloqueia bootUser enquanto recovery está ativo
+      _recoveryMode = true;
       showSetPassPage(sess?.user, 'recovery');
       return;
     }
@@ -729,6 +740,7 @@ async function bootUser(user) {
   _booting = true;
   _recoveryMode = false;
   clearTimeout(_initTimeout);
+  sessionStorage.removeItem('cp_boot_retry'); // login ok — limpa flag de retry
   try {
     const { data: p, error } = await sb.from('profiles')
       .select('*').eq('auth_user_id', user.id).single();
@@ -828,14 +840,15 @@ document.getElementById('loginForm').addEventListener('submit', async e => {
   }, 8000);
 
   try {
-    const { error } = await sb.auth.signInWithPassword({
+    console.log('[CP login] chamando signInWithPassword...');
+    const { data, error } = await sb.auth.signInWithPassword({
       email: document.getElementById('fEmail').value.trim(),
       password: document.getElementById('fPass').value
     });
     clearTimeout(loginTimer);
+    console.log('[CP login] retornou — error:', error?.message, '| user:', !!data?.user);
     if (error) { toast('E-mail ou senha incorretos.', 'err'); btn.disabled = false; btn.textContent = 'Entrar'; }
   } catch (ex) {
-    // Erro inesperado (ex: sb não inicializado) — libera o botão e mostra mensagem
     clearTimeout(loginTimer);
     console.error('[CP] Erro no login:', ex);
     toast('Erro de conexão. Recarregue a página.', 'err');
