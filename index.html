@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/supabase.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -604,6 +604,12 @@ let _booting = false;
 // BOOT
 // ═══════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', async () => {
+  // Limpa sessões incompatíveis de versões anteriores (executa só uma vez por versão)
+  if (localStorage.getItem('cp_sv') !== 'v4') {
+    localStorage.clear();
+    localStorage.setItem('cp_sv', 'v4');
+  }
+
   sb = supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey);
 
   // ── Configura listener ANTES de tudo para capturar PASSWORD_RECOVERY ──
@@ -677,10 +683,17 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
 
   // ── Caso 4: Sessão já existente (login normal) ──
-  const { data: { session } } = await sb.auth.getSession();
-  if (session) {
-    await bootUser(session.user);
-  } else {
+  try {
+    const { data: { session }, error } = await sb.auth.getSession();
+    if (error) throw error;
+    if (session) {
+      await bootUser(session.user);
+    } else {
+      showLogin();
+    }
+  } catch (e) {
+    // Sessão corrompida ou inválida — limpa e mostra login
+    localStorage.clear();
     showLogin();
   }
 });
