@@ -598,7 +598,7 @@ const CFG = {
 // GLOBALS
 // ═══════════════════════════════════════════════
 let sb, curUser, curProfile, allEmps = [];
-let recoveryMode = false;
+let _booting = false;
 
 // ═══════════════════════════════════════════════
 // BOOT
@@ -609,13 +609,13 @@ window.addEventListener('DOMContentLoaded', async () => {
   // ── Configura listener ANTES de tudo para capturar PASSWORD_RECOVERY ──
   sb.auth.onAuthStateChange(async (ev, sess) => {
     if (ev === 'PASSWORD_RECOVERY') {
-      recoveryMode = true;
       showSetPassPage(sess?.user, 'recovery');
       return;
     }
-    if (ev === 'SIGNED_IN' && sess && !curUser && !recoveryMode) await bootUser(sess.user);
-    if (ev === 'USER_UPDATED' && sess && curUser === null && !recoveryMode) await bootUser(sess.user);
-    if (ev === 'SIGNED_OUT') { curUser = null; curProfile = null; recoveryMode = false; showLogin(); }
+    const setpassAberta = document.getElementById('setpass-page')?.style.display === 'flex';
+    if (ev === 'SIGNED_IN' && sess && !curUser && !setpassAberta) await bootUser(sess.user);
+    if (ev === 'USER_UPDATED' && sess && curUser === null && !setpassAberta) await bootUser(sess.user);
+    if (ev === 'SIGNED_OUT') { curUser = null; curProfile = null; showLogin(); }
   });
 
   // ── Detecta parâmetros no hash da URL (implicit flow) ──
@@ -644,7 +644,6 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   // ── Caso 2: Reset de senha via access_token no hash (implicit flow) ──
   if (urlAccessToken && urlType === 'recovery') {
-    recoveryMode = true; // bloqueia SIGNED_IN de chamar bootUser
     const refreshToken = hashParams.get('refresh_token');
     const { data, error } = await sb.auth.setSession({
       access_token: urlAccessToken,
@@ -653,7 +652,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (!error && data?.user) {
       showSetPassPage(data.user, 'recovery');
     } else {
-      recoveryMode = false;
       showLogin();
       showLoginBanner('⏰ O link de redefinição expirou. Solicite um novo.', 'err');
     }
@@ -678,44 +676,40 @@ window.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  // ── Caso 4: PKCE code na URL → aguarda onAuthStateChange ──
-  if (pkceCode) {
-    // SDK processa o código automaticamente e dispara PASSWORD_RECOVERY ou SIGNED_IN
+  // ── Caso 4: Sessão já existente (login normal) ──
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    await bootUser(session.user);
+  } else {
     showLogin();
-    return;
-  }
-
-  // ── Caso 5: Sessão já existente (login normal) ──
-  if (!recoveryMode) {
-    const { data: { session } } = await sb.auth.getSession();
-    // Dupla verificação: recoveryMode pode ter mudado durante o await
-    if (!recoveryMode && session) {
-      await bootUser(session.user);
-    } else if (!recoveryMode) {
-      showLogin();
-    }
   }
 });
 
 async function bootUser(user) {
-  const { data: p, error } = await sb.from('profiles')
-    .select('*').eq('auth_user_id', user.id).single();
-  if (error || !p) { toast('Perfil não encontrado. Fale com o RH.', 'err'); await sb.auth.signOut(); return; }
-  if (p.is_active === false) {
-    toast('Seu acesso foi desativado. Entre em contato com o RH.', 'err');
-    await sb.auth.signOut();
-    return;
+  if (_booting || curUser) return; // evita chamadas simultâneas
+  _booting = true;
+  try {
+    const { data: p, error } = await sb.from('profiles')
+      .select('*').eq('auth_user_id', user.id).single();
+    if (error || !p) { toast('Perfil não encontrado. Fale com o RH.', 'err'); await sb.auth.signOut(); return; }
+    if (p.is_active === false) {
+      toast('Seu acesso foi desativado. Entre em contato com o RH.', 'err');
+      await sb.auth.signOut();
+      return;
+    }
+    curUser = user;
+    curProfile = p;
+    document.getElementById('uAva').textContent = p.name.charAt(0).toUpperCase();
+    document.getElementById('uName').textContent = p.name;
+    document.getElementById('uRole').textContent = p.role === 'admin' ? '🔑 Administrador' : '👤 Colaborador';
+    if (p.role === 'admin') document.getElementById('adminNav').style.display = 'block';
+    document.getElementById('login-page').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    goTo('home');
+    setTimeout(() => carregarBadgeSolic(), 1500);
+  } finally {
+    _booting = false;
   }
-  curUser = user;
-  curProfile = p;
-  document.getElementById('uAva').textContent = p.name.charAt(0).toUpperCase();
-  document.getElementById('uName').textContent = p.name;
-  document.getElementById('uRole').textContent = p.role === 'admin' ? '🔑 Administrador' : '👤 Colaborador';
-  if (p.role === 'admin') document.getElementById('adminNav').style.display = 'block';
-  document.getElementById('login-page').style.display = 'none';
-  document.getElementById('app').style.display = 'block';
-  goTo('home');
-  setTimeout(() => carregarBadgeSolic(), 1500);
 }
 
 function showLogin() {
@@ -766,7 +760,6 @@ document.getElementById('setPassForm').addEventListener('submit', async e => {
     return;
   }
   // Senha definida → carregar perfil e entrar
-  recoveryMode = false;
   const { data: { user } } = await sb.auth.getUser();
   document.getElementById('setpass-page').style.display = 'none';
   await bootUser(user);
