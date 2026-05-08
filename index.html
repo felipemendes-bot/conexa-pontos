@@ -639,6 +639,21 @@ window.addEventListener('DOMContentLoaded', async () => {
     localStorage.setItem('cp_sv', 'v4');
   }
 
+  // ── Limpa sessão com access_token expirado ANTES de criar o cliente ──
+  // Isso evita o travamento causado pelo refresh do token (requisição HTTP que nunca responde).
+  // O Supabase tenta renovar o token expirado ao iniciar — se o servidor demorar, trava tudo.
+  try {
+    const authKey = Object.keys(localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
+    if (authKey) {
+      const stored = JSON.parse(localStorage.getItem(authKey) || '{}');
+      const expiresAt = stored?.expires_at; // unix timestamp em segundos
+      if (expiresAt && expiresAt * 1000 < Date.now()) {
+        console.warn('[CP] token expirado detectado — limpando sessão para evitar travamento');
+        localStorage.removeItem(authKey);
+      }
+    }
+  } catch (_) {}
+
   sb = supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey);
 
   // ── Configura listener ANTES de tudo para capturar PASSWORD_RECOVERY ──
@@ -739,8 +754,8 @@ async function bootUser(user) {
   if (_booting || curUser) return; // evita chamadas simultâneas
   _booting = true;
   _recoveryMode = false;
-  clearTimeout(_initTimeout);
-  sessionStorage.removeItem('cp_boot_retry'); // login ok — limpa flag de retry
+  // NÃO cancela o _initTimeout aqui — só cancela depois do app carregar com sucesso.
+  // Se bootUser travar (ex: query de perfil lenta), o timeout ainda vai disparar e recarregar.
   try {
     const { data: p, error } = await sb.from('profiles')
       .select('*').eq('auth_user_id', user.id).single();
@@ -758,6 +773,9 @@ async function bootUser(user) {
     if (p.role === 'admin') document.getElementById('adminNav').style.display = 'block';
     document.getElementById('login-page').style.display = 'none';
     document.getElementById('app').style.display = 'block';
+    // App carregou com sucesso — agora sim cancela o timeout e limpa flags
+    clearTimeout(_initTimeout);
+    sessionStorage.removeItem('cp_boot_retry');
     goTo('home');
     setTimeout(() => carregarBadgeSolic(), 1500);
   } finally {
