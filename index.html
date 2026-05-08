@@ -250,7 +250,7 @@
 </div>
 
 <!-- ════════════════ LOGIN ════════════════ -->
-<div id="login-page">
+<div id="login-page" style="display:none">
   <div class="login-box">
     <div class="login-logo">
       <div class="login-logo-wrap">
@@ -599,11 +599,21 @@ const CFG = {
 // ═══════════════════════════════════════════════
 let sb, curUser, curProfile, allEmps = [];
 let _booting = false;
+let _recoveryMode = false; // true enquanto o fluxo de redefinição de senha está ativo
+let _initTimeout  = null;  // timeout de segurança para o boot
 
 // ═══════════════════════════════════════════════
 // BOOT
 // ═══════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', async () => {
+  // Timeout de segurança: se o boot travar (ex: refresh de sessão antiga preso),
+  // limpa o localStorage e mostra a tela de login após 6 segundos
+  _initTimeout = setTimeout(() => {
+    console.warn('[CP] boot timeout — clearing session and showing login');
+    localStorage.clear();
+    showLogin();
+  }, 6000);
+
   // Limpa sessões incompatíveis de versões anteriores (executa só uma vez por versão)
   if (localStorage.getItem('cp_sv') !== 'v4') {
     localStorage.clear();
@@ -615,13 +625,13 @@ window.addEventListener('DOMContentLoaded', async () => {
   // ── Configura listener ANTES de tudo para capturar PASSWORD_RECOVERY ──
   sb.auth.onAuthStateChange(async (ev, sess) => {
     if (ev === 'PASSWORD_RECOVERY') {
+      _recoveryMode = true;                      // bloqueia bootUser enquanto recovery está ativo
       showSetPassPage(sess?.user, 'recovery');
       return;
     }
-    const setpassAberta = document.getElementById('setpass-page')?.style.display === 'flex';
-    if (ev === 'SIGNED_IN' && sess && !curUser && !setpassAberta) await bootUser(sess.user);
-    if (ev === 'USER_UPDATED' && sess && curUser === null && !setpassAberta) await bootUser(sess.user);
-    if (ev === 'SIGNED_OUT') { curUser = null; curProfile = null; showLogin(); }
+    if (ev === 'SIGNED_IN' && sess && !curUser && !_recoveryMode) await bootUser(sess.user);
+    if (ev === 'USER_UPDATED' && sess && curUser === null && !_recoveryMode) await bootUser(sess.user);
+    if (ev === 'SIGNED_OUT') { curUser = null; curProfile = null; _recoveryMode = false; showLogin(); }
   });
 
   // ── Detecta parâmetros no hash da URL (implicit flow) ──
@@ -650,16 +660,21 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   // ── Caso 2: Reset de senha via access_token no hash (implicit flow) ──
   if (urlAccessToken && urlType === 'recovery') {
+    // Ativa o modo recovery ANTES de chamar setSession para que o evento
+    // SIGNED_IN disparado internamente não chame bootUser por engano
+    _recoveryMode = true;
+    showSetPassPage(null, 'recovery');           // mostra a tela imediatamente
     const refreshToken = hashParams.get('refresh_token');
     const { data, error } = await sb.auth.setSession({
       access_token: urlAccessToken,
       refresh_token: refreshToken || ''
     });
-    if (!error && data?.user) {
-      showSetPassPage(data.user, 'recovery');
-    } else {
+    if (error) {
+      _recoveryMode = false;
       showLogin();
       showLoginBanner('⏰ O link de redefinição expirou. Solicite um novo.', 'err');
+    } else if (data?.user) {
+      showSetPassPage(data.user, 'recovery');    // re-chama para atualizar o user
     }
     return;
   }
@@ -686,6 +701,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   try {
     const { data: { session }, error } = await sb.auth.getSession();
     if (error) throw error;
+    // Se PASSWORD_RECOVERY disparou durante o await, o fluxo de recovery já foi iniciado
+    if (_recoveryMode) return;
     if (session) {
       await bootUser(session.user);
     } else {
@@ -701,6 +718,8 @@ window.addEventListener('DOMContentLoaded', async () => {
 async function bootUser(user) {
   if (_booting || curUser) return; // evita chamadas simultâneas
   _booting = true;
+  _recoveryMode = false;
+  clearTimeout(_initTimeout);
   try {
     const { data: p, error } = await sb.from('profiles')
       .select('*').eq('auth_user_id', user.id).single();
@@ -726,6 +745,8 @@ async function bootUser(user) {
 }
 
 function showLogin() {
+  clearTimeout(_initTimeout);
+  _recoveryMode = false;
   document.getElementById('login-page').style.display = 'flex';
   document.getElementById('app').style.display = 'none';
   document.getElementById('setpass-page').style.display = 'none';
@@ -746,6 +767,7 @@ function showLoginBanner(msg, type) {
 }
 
 function showSetPassPage(user, type) {
+  clearTimeout(_initTimeout);
   document.getElementById('login-page').style.display = 'none';
   document.getElementById('app').style.display = 'none';
   if (type === 'recovery') {
@@ -785,10 +807,23 @@ document.getElementById('loginForm').addEventListener('submit', async e => {
   e.preventDefault();
   const btn = document.getElementById('btnLogin');
   btn.disabled = true; btn.textContent = 'Entrando…';
+
+  // Timeout de segurança: se signInWithPassword travar (sessão antiga bloqueando o cliente),
+  // limpa o localStorage e pede para tentar de novo
+  const loginTimer = setTimeout(() => {
+    if (!curUser) {
+      localStorage.clear();
+      btn.disabled = false; btn.textContent = 'Entrar';
+      toast('Tempo esgotado. Recarregue a página e tente novamente.', 'err');
+    }
+  }, 8000);
+
   const { error } = await sb.auth.signInWithPassword({
     email: document.getElementById('fEmail').value.trim(),
     password: document.getElementById('fPass').value
   });
+
+  clearTimeout(loginTimer);
   if (error) { toast('E-mail ou senha incorretos.', 'err'); btn.disabled = false; btn.textContent = 'Entrar'; }
 });
 
