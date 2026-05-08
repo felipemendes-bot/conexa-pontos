@@ -2423,6 +2423,11 @@ async function enviarSolicitacao() {
   if (!descricao) { toast('Descreva sua conquista.', 'err'); return; }
   if (!arquivo)   { toast('Anexe um comprovante (imagem ou PDF).', 'err'); return; }
   if (arquivo.size > 5 * 1024 * 1024) { toast('Arquivo muito grande. Máximo 5MB.', 'err'); return; }
+  const tiposPermitidos = ['image/jpeg','image/png','image/gif','image/webp','image/heic','application/pdf'];
+  if (!tiposPermitidos.includes(arquivo.type)) {
+    toast('Formato inválido. Envie apenas imagens (JPG, PNG) ou PDF.', 'err');
+    return;
+  }
 
   btn.disabled = true;
   btn.textContent = '⏳ Enviando…';
@@ -2486,7 +2491,7 @@ async function loadMinhasSolicitacoes() {
   }[s] || '<span class="badge badge-gray">' + s + '</span>');
 
   el.innerHTML = `<div class="table-wrap"><table>
-    <thead><tr><th>Data</th><th>Categoria</th><th>Descrição</th><th>Comprovante</th><th>Status</th><th>Obs. RH</th><th>Pontos</th></tr></thead>
+    <thead><tr><th>Data</th><th>Categoria</th><th>Descrição</th><th>Comprovante</th><th>Status</th><th>Obs. RH</th><th>Pontos</th><th></th></tr></thead>
     <tbody>
     ${data.map(r => `<tr>
       <td>${new Date(r.created_at).toLocaleDateString('pt-BR')}</td>
@@ -2496,8 +2501,41 @@ async function loadMinhasSolicitacoes() {
       <td>${statusBadge(r.status)}</td>
       <td style="max-width:160px;white-space:normal;font-size:13px;color:var(--muted);">${escHtml(r.obs_rh || '—')}</td>
       <td>${r.pontos_aprovados ? '<strong style="color:var(--primary);">+' + r.pontos_aprovados + ' pts</strong>' : '—'}</td>
+      <td>${r.status === 'pendente' ? `<button onclick="cancelarSolicitacao('${escJs(r.id)}','${escJs(r.arquivo_url||'')}')" class="btn btn-sm btn-danger" style="font-size:12px;">🗑️ Cancelar</button>` : ''}</td>
     </tr>`).join('')}
     </tbody></table></div>`;
+}
+
+async function cancelarSolicitacao(id, arquivoUrl) {
+  openModal(`<div class="modal-title">🗑️ Cancelar Solicitação</div>
+    <p style="font-size:14px;color:var(--muted);margin-bottom:20px;">Tem certeza que deseja cancelar esta solicitação? Ela será removida e o comprovante deletado.</p>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="closeModal()">Voltar</button>
+      <button class="btn btn-danger" onclick="confirmarCancelamento('${escJs(id)}','${escJs(arquivoUrl)}')">🗑️ Confirmar cancelamento</button>
+    </div>`);
+}
+
+async function confirmarCancelamento(id, arquivoUrl) {
+  closeModal();
+  try {
+    const { error } = await sb.from('solicitacoes')
+      .delete()
+      .eq('id', id)
+      .eq('employee_id', curProfile.id)
+      .eq('status', 'pendente');
+    if (error) throw error;
+
+    // Remove o comprovante do storage se existir
+    if (arquivoUrl) {
+      const match = arquivoUrl.match(/comprovantes\/(.+)$/);
+      if (match) await sb.storage.from('comprovantes').remove([match[1]]);
+    }
+
+    toast('Solicitação cancelada com sucesso.');
+    loadMinhasSolicitacoes();
+  } catch(e) {
+    toast('Erro ao cancelar: ' + (e.message || e), 'err');
+  }
 }
 
 // ═══════════════════════════════════════════════
