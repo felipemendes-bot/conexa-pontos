@@ -8,7 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <script src="/supabase.min.js"></script>
+  <!-- Supabase JS: arquivo local (mesmo domínio) com fallback para CDN -->
+  <script src="/supabase.min.js" onerror="document.write('<script src=\'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js\'><\/script>')"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -606,6 +607,14 @@ let _initTimeout  = null;  // timeout de segurança para o boot
 // BOOT
 // ═══════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', async () => {
+  // Verifica se o supabase.min.js carregou corretamente
+  if (typeof supabase === 'undefined') {
+    console.error('[CP] supabase.min.js não carregou!');
+    const btn = document.getElementById('btnLogin');
+    if (btn) { btn.textContent = '⚠ Erro — recarregue a página'; btn.disabled = true; }
+    return;
+  }
+
   // Timeout de segurança: se o boot travar (ex: refresh de sessão antiga preso),
   // limpa o localStorage e mostra a tela de login após 6 segundos
   _initTimeout = setTimeout(() => {
@@ -818,13 +827,20 @@ document.getElementById('loginForm').addEventListener('submit', async e => {
     }
   }, 8000);
 
-  const { error } = await sb.auth.signInWithPassword({
-    email: document.getElementById('fEmail').value.trim(),
-    password: document.getElementById('fPass').value
-  });
-
-  clearTimeout(loginTimer);
-  if (error) { toast('E-mail ou senha incorretos.', 'err'); btn.disabled = false; btn.textContent = 'Entrar'; }
+  try {
+    const { error } = await sb.auth.signInWithPassword({
+      email: document.getElementById('fEmail').value.trim(),
+      password: document.getElementById('fPass').value
+    });
+    clearTimeout(loginTimer);
+    if (error) { toast('E-mail ou senha incorretos.', 'err'); btn.disabled = false; btn.textContent = 'Entrar'; }
+  } catch (ex) {
+    // Erro inesperado (ex: sb não inicializado) — libera o botão e mostra mensagem
+    clearTimeout(loginTimer);
+    console.error('[CP] Erro no login:', ex);
+    toast('Erro de conexão. Recarregue a página.', 'err');
+    btn.disabled = false; btn.textContent = 'Entrar';
+  }
 });
 
 async function doSignOut() {
