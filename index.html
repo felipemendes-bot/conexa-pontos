@@ -324,6 +324,9 @@
       <div class="nav-link" data-view="myorders" onclick="goTo('myorders')">
         <span class="icon">📦</span> Meus Resgates
       </div>
+      <div class="nav-link" data-view="extrato" onclick="goTo('extrato')">
+        <span class="icon">📑</span> Extrato de Pontos
+      </div>
       <div class="nav-link" data-view="policy" onclick="goTo('policy')">
         <span class="icon">📄</span> Política do Programa
       </div>
@@ -558,6 +561,37 @@
       </div>
       <div class="card">
         <div id="minhasSolicContent"><div class="center-msg"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+    <!-- ── VIEW: EXTRATO DE PONTOS ── -->
+    <div class="view" id="view-extrato">
+      <div class="page-header">
+        <div>
+          <div class="page-title">📑 Extrato de Pontos</div>
+          <div class="page-subtitle">Acompanhe toda a movimentação dos seus pontos</div>
+        </div>
+        <button class="btn btn-ghost" onclick="loadExtrato()">🔄 Atualizar</button>
+      </div>
+      <!-- Resumo -->
+      <div id="extratoResumo" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:16px; margin-bottom:24px;"></div>
+      <!-- Filtros -->
+      <div class="card" style="margin-bottom:16px; padding:14px 20px;">
+        <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+          <label style="font-size:13px; font-weight:600; color:var(--muted);">Filtrar:</label>
+          <select id="extratoFiltroTipo" onchange="renderExtrato()" style="padding:6px 10px; border:2px solid var(--border); border-radius:8px; font-size:13px; background:var(--white); color:var(--text);">
+            <option value="todos">Todas as movimentações</option>
+            <option value="entrada">Apenas entradas (+)</option>
+            <option value="saida">Apenas saídas (−)</option>
+          </select>
+          <select id="extratoFiltroMes" onchange="renderExtrato()" style="padding:6px 10px; border:2px solid var(--border); border-radius:8px; font-size:13px; background:var(--white); color:var(--text);">
+            <option value="todos">Todos os meses</option>
+          </select>
+        </div>
+      </div>
+      <!-- Tabela -->
+      <div class="card">
+        <div id="extratoContent"><div class="center-msg"><div class="spinner"></div></div></div>
       </div>
     </div>
 
@@ -947,6 +981,7 @@ async function loadView(v) {
   if (v === 'solicitar')       return;
   if (v === 'minhassolicitacoes') return loadMinhasSolicitacoes();
   if (v === 'solicitacoes')    return loadSolicitacoes();
+  if (v === 'extrato')         return loadExtrato();
 }
 
 // ═══════════════════════════════════════════════
@@ -1109,6 +1144,106 @@ async function loadMyOrders() {
       <td>${statusBadge(r.status)}</td>
       <td class="txt-muted">${fDate(r.created_at)}</td>
     </tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
+// ═══════════════════════════════════════════════
+// EXTRATO DE PONTOS
+// ═══════════════════════════════════════════════
+let _extratoData = [];
+
+async function loadExtrato() {
+  const el = document.getElementById('extratoContent');
+  el.innerHTML = '<div class="center-msg"><div class="spinner"></div></div>';
+
+  const { data, error } = await sb.from('point_transactions')
+    .select('*')
+    .eq('employee_id', curProfile.id)
+    .order('created_at', { ascending: false });
+
+  if (error || !data) {
+    el.innerHTML = html_empty('📑', 'Erro ao carregar extrato');
+    return;
+  }
+
+  _extratoData = data;
+
+  // Calcula totais
+  const totalEntradas = data.filter(t => t.points > 0).reduce((s, t) => s + t.points, 0);
+  const totalSaidas   = data.filter(t => t.points < 0).reduce((s, t) => s + Math.abs(t.points), 0);
+  const saldoAtual    = curProfile.points_balance;
+
+  // Resumo
+  document.getElementById('extratoResumo').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-icon">💰</div>
+      <div class="stat-label">Saldo Atual</div>
+      <div class="stat-value" style="color:var(--primary)">${fPts(saldoAtual)} pts</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">⬆️</div>
+      <div class="stat-label">Total Recebido</div>
+      <div class="stat-value" style="color:var(--success)">+${fPts(totalEntradas)} pts</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">⬇️</div>
+      <div class="stat-label">Total Utilizado</div>
+      <div class="stat-value" style="color:var(--danger)">-${fPts(totalSaidas)} pts</div>
+    </div>
+  `;
+
+  // Popula filtro de meses
+  const meses = [...new Set(data.map(t => t.created_at.substring(0, 7)))];
+  const selMes = document.getElementById('extratoFiltroMes');
+  selMes.innerHTML = '<option value="todos">Todos os meses</option>' +
+    meses.map(m => {
+      const [ano, mes] = m.split('-');
+      const nome = new Date(ano, parseInt(mes) - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+      return `<option value="${m}">${nome.charAt(0).toUpperCase() + nome.slice(1)}</option>`;
+    }).join('');
+
+  renderExtrato();
+}
+
+function renderExtrato() {
+  const el = document.getElementById('extratoContent');
+  const filtroTipo = document.getElementById('extratoFiltroTipo').value;
+  const filtroMes  = document.getElementById('extratoFiltroMes').value;
+
+  let dados = _extratoData;
+
+  if (filtroTipo === 'entrada') dados = dados.filter(t => t.points > 0);
+  if (filtroTipo === 'saida')   dados = dados.filter(t => t.points < 0);
+  if (filtroMes  !== 'todos')   dados = dados.filter(t => t.created_at.startsWith(filtroMes));
+
+  if (dados.length === 0) {
+    el.innerHTML = html_empty('📑', 'Nenhuma movimentação encontrada');
+    return;
+  }
+
+  el.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr>
+      <th>Data</th>
+      <th>Descrição</th>
+      <th>Tipo</th>
+      <th style="text-align:right">Pontos</th>
+    </tr></thead>
+    <tbody>
+    ${dados.map(t => {
+      const isEntrada = t.points > 0;
+      const tipoBadge = isEntrada
+        ? `<span style="background:#E8F5E9; color:#2E7D32; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:600;">⬆ Entrada</span>`
+        : `<span style="background:#FFEBEE; color:#C62828; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:600;">⬇ Saída</span>`;
+      return `<tr>
+        <td class="txt-muted" style="white-space:nowrap">${fDate(t.created_at)}</td>
+        <td>${t.description || '—'}</td>
+        <td>${tipoBadge}</td>
+        <td style="text-align:right; font-weight:700;" class="${isEntrada ? 'txt-green' : 'txt-red'}">
+          ${isEntrada ? '+' : ''}${fPts(t.points)} pts
+        </td>
+      </tr>`;
+    }).join('')}
+    </tbody>
   </table></div>`;
 }
 
