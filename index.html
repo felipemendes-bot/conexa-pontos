@@ -1078,7 +1078,6 @@ function productCard(p, withRedeem) {
       <div class="product-desc">${escHtml(p.description || '')}</div>
       ${p.delivery_days != null ? `<div style="font-size:12px;color:var(--muted);margin-bottom:8px">⏱️ Prazo de entrega: ${p.delivery_days === 0 ? 'Imediato' : p.delivery_days + ' dia' + (p.delivery_days !== 1 ? 's úteis' : ' útil')}</div>` : ''}
       <div class="product-footer">
-        ${curProfile?.role === 'admin' ? `<span class="pts-tag">⭐ ${fPts(p.points_cost)} pts</span>` : ''}
         ${btn}
       </div>
     </div>
