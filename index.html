@@ -2269,7 +2269,7 @@ async function loadReports() {
   el.innerHTML = `<div class="center-msg"><div class="spinner"></div></div>`;
   document.getElementById('btnExportReport').style.display = 'none';
 
-  const [rankRed, rankPts, topProds, statsRes, recentTxRes] = await Promise.all([
+  const [rankRed, rankPts, topProds, statsRes, recentTxRes, activeEmpsData] = await Promise.all([
     // Ranking por número de resgates (não cancelados)
     sb.from('redemptions')
       .select('employee_id, profiles!redemptions_employee_id_fkey(name, email, department)')
@@ -2294,6 +2294,11 @@ async function loadReports() {
     sb.from('point_transactions')
       .select('*, profiles!point_transactions_employee_id_fkey(name)')
       .order('created_at', { ascending: false }).limit(15),
+    // Lista completa de colaboradores ativos
+    sb.from('profiles')
+      .select('name, email, department, points_balance, created_at')
+      .eq('role', 'employee').eq('is_active', true)
+      .order('name', { ascending: true }),
   ]);
 
   // Processa ranking de resgates
@@ -2398,6 +2403,22 @@ async function loadReports() {
       </table></div>`}
     </div>
 
+    <!-- Colaboradores Ativos -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-title">👥 Colaboradores Ativos</div>
+      ${!activeEmpsData.data || activeEmpsData.data.length === 0 ? html_empty('👥', 'Nenhum colaborador ativo') : `
+      <div class="table-wrap"><table>
+        <thead><tr><th>Nome</th><th>E-mail</th><th>Setor</th><th style="text-align:right">Saldo Atual</th><th>Cadastro</th></tr></thead>
+        <tbody>${(activeEmpsData.data || []).map(e => `<tr>
+          <td><strong>${escHtml(e.name || '—')}</strong></td>
+          <td class="txt-muted">${escHtml(e.email || '—')}</td>
+          <td class="txt-muted">${escHtml(e.department || '—')}</td>
+          <td style="text-align:right"><strong style="color:var(--primary)">${fPts(e.points_balance || 0)} pts</strong></td>
+          <td class="txt-muted">${fDate(e.created_at)}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>`}
+    </div>
+
     <!-- Últimas movimentações -->
     <div class="card">
       <div class="card-title">📊 Últimas Movimentações</div>
@@ -2423,6 +2444,7 @@ async function loadReports() {
     topByRedeemed,
     topByPts,
     topProdsList,
+    activeEmpsList: activeEmpsData.data || [],
   };
   document.getElementById('btnExportReport').style.display = 'inline-flex';
 }
@@ -2473,6 +2495,21 @@ function exportReports() {
   const wsProds = XLSX.utils.aoa_to_sheet(prodsData);
   wsProds['!cols'] = [{ wch: 5 }, { wch: 36 }, { wch: 20 }];
   XLSX.utils.book_append_sheet(wb, wsProds, 'Premios Mais Resgatados');
+
+  // ── Aba 5: Colaboradores Ativos ──
+  const empsData = [
+    ['Nome', 'E-mail', 'Setor', 'Saldo Atual (pts)', 'Data de Cadastro'],
+    ...(d.activeEmpsList || []).map(e => [
+      e.name || '—',
+      e.email || '—',
+      e.department || '—',
+      e.points_balance || 0,
+      e.created_at ? new Date(e.created_at).toLocaleDateString('pt-BR') : '—',
+    ]),
+  ];
+  const wsEmps = XLSX.utils.aoa_to_sheet(empsData);
+  wsEmps['!cols'] = [{ wch: 30 }, { wch: 34 }, { wch: 22 }, { wch: 18 }, { wch: 18 }];
+  XLSX.utils.book_append_sheet(wb, wsEmps, 'Colaboradores Ativos');
 
   // Gera e baixa o arquivo
   const fileName = `relatorio-conexa-pontos-${new Date().toISOString().slice(0,10)}.xlsx`;
@@ -2553,8 +2590,10 @@ async function processImportEmps() {
   btn.disabled = true;
   const token = (await sb.auth.getSession()).data.session?.access_token;
   let ok = 0, fail = 0;
+  const failedEmails = [];
   const preview = document.getElementById('imp_emp_preview');
   for (let i = 0; i < _importEmpRows.length; i++) {
+    preview.innerHTML = `<div class="import-progress">Importando… ${i + 1} de ${_importEmpRows.length}</div>`;
     const [name, email, dept] = _importEmpRows[i];
     preview.innerHTML = `<div class="import-progress">⏳ Processando ${i + 1} de ${_importEmpRows.length}: ${escHtml(name)}…</div>`;
     try {
@@ -2565,12 +2604,17 @@ async function processImportEmps() {
       });
       const json = await res.json();
       if (res.ok && !json.error) ok++;
-      else fail++;
-    } catch { fail++; }
+      else { fail++; failedEmails.push(email); }
+    } catch { fail++; failedEmails.push(email); }
+    // Pequena pausa para evitar rate limit do Supabase
+    await new Promise(r => setTimeout(r, 300));
   }
+  const failList = failedEmails.length
+    ? `<details style="margin-top:8px;font-size:12px"><summary style="cursor:pointer;color:var(--danger)">Ver ${failedEmails.length} e-mail(s) com erro</summary><div style="margin-top:6px;padding:8px;background:#fff;border-radius:6px;max-height:120px;overflow-y:auto">${failedEmails.map(e => `<div>${escHtml(e)}</div>`).join('')}</div></details>`
+    : '';
   preview.innerHTML = `<div class="import-progress" style="background:${fail > 0 ? '#ffebe6' : 'var(--primary-light)'};color:${fail > 0 ? 'var(--danger)' : 'var(--primary-dark)'}">
     ✅ ${ok} importado${ok !== 1 ? 's' : ''} com sucesso${fail > 0 ? ` · ⚠️ ${fail} com erro (e-mail já cadastrado ou inválido)` : ''}
-  </div>`;
+  </div>${failList}`;
   btn.textContent = 'Fechar';
   btn.disabled = false;
   btn.onclick = () => { closeModal(); loadEmps(); };
