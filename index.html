@@ -222,10 +222,12 @@
     .policy-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
     .policy-table tr:nth-child(even) td { background: var(--bg); }
     .policy-pill { display: inline-block; background: var(--primary-light); color: var(--primary-dark); border-radius: 20px; padding: 2px 10px; font-size: 12px; font-weight: 600; }
-    .rule-list { list-style: none; padding: 0; }
+    .rule-list { list-style: none; padding: 0; margin: 0 0 8px 0; }
     .rule-list li { padding: 6px 0 6px 22px; position: relative; border-bottom: 1px solid var(--border); font-size: 14px; }
     .rule-list li::before { content: '•'; position: absolute; left: 6px; color: var(--primary); font-weight: 700; }
     .rule-list li:last-child { border-bottom: none; }
+    .rule-section-header { font-size: 13px; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: 0.05em; margin: 18px 0 6px 0; padding-bottom: 4px; border-bottom: 2px solid var(--primary-light); }
+    .rule-section-header:first-child { margin-top: 4px; }
 
     /* ── REPORTS ── */
     .rank-badge { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; font-size: 13px; font-weight: 700; }
@@ -2057,9 +2059,21 @@ async function loadPolicy() {
     <div class="card policy-section">
       ${editBtn('rules')}
       <h3>📋 Regras Gerais</h3>
-      <ul class="rule-list">
-        ${rules.map(r => `<li>${escHtml(r)}</li>`).join('')}
-      </ul>
+      ${(() => {
+        let html = '';
+        let inList = false;
+        rules.forEach(r => {
+          if (r.startsWith('## ')) {
+            if (inList) { html += '</ul>'; inList = false; }
+            html += `<h4 class="rule-section-header">${escHtml(r.slice(3))}</h4>`;
+          } else {
+            if (!inList) { html += '<ul class="rule-list">'; inList = true; }
+            html += `<li>${escHtml(r)}</li>`;
+          }
+        });
+        if (inList) html += '</ul>';
+        return html;
+      })()}
     </div>
 
     <div class="card" style="background:var(--primary-light);border:none">
