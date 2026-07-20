@@ -1050,7 +1050,7 @@ async function loadCatalog() {
   document.getElementById('catBal').textContent = fPts(curProfile.points_balance);
   const grid = document.getElementById('catalogGrid');
   grid.innerHTML = `<div class="center-msg"><div class="spinner"></div></div>`;
-  const { data } = await sb.from('products').select('*').eq('is_active', true).order('points_cost');
+  const { data } = await sb.from('products').select('*').eq('is_active', true).order('sort_order', { ascending: true, nullsFirst: false }).order('created_at', { ascending: true });
   if (!data || data.length === 0) { grid.innerHTML = html_empty('🎁', 'Nenhum prêmio disponível no momento'); return; }
   grid.innerHTML = data.map(p => productCard(p, true)).join('');
 }
@@ -1507,12 +1507,13 @@ async function applyAdjBal(id, name, curBal) {
 async function loadAdmCat() {
   const grid = document.getElementById('admCatGrid');
   grid.innerHTML = `<div class="center-msg"><div class="spinner"></div></div>`;
-  const { data } = await sb.from('products').select('*').order('created_at', { ascending: false });
+  const { data } = await sb.from('products').select('*').order('sort_order', { ascending: true, nullsFirst: false }).order('created_at', { ascending: true });
   if (!data || data.length === 0) { grid.innerHTML = html_empty('🎁', 'Nenhum prêmio cadastrado. Clique em "+ Novo Prêmio" para começar!'); return; }
-  grid.innerHTML = data.map(p => admProductCard(p)).join('');
+  window._admCatData = data;
+  grid.innerHTML = data.map((p, i) => admProductCard(p, i, data.length)).join('');
 }
 
-function admProductCard(p) {
+function admProductCard(p, idx, total) {
   const imgHtml = p.image_url
     ? `<img src="${escHtml(p.image_url)}" alt="${escHtml(p.name)}" onerror="this.style.display='none'; this.parentElement.innerHTML='🎁'">`
     : '🎁';
@@ -1521,10 +1522,19 @@ function admProductCard(p) {
     : p.stock_quantity <= 0
       ? '<span class="badge badge-red">🚫 Esgotado (0 un.)</span>'
       : `<span class="badge badge-green">📦 Estoque: ${p.stock_quantity} un.</span>`;
+  const upBtn   = idx > 0
+    ? `<button class="btn btn-ghost btn-sm" title="Mover para cima" onclick="moveProd(${idx},-1)">▲</button>`
+    : `<button class="btn btn-ghost btn-sm" disabled style="opacity:.3">▲</button>`;
+  const downBtn = idx < total - 1
+    ? `<button class="btn btn-ghost btn-sm" title="Mover para baixo" onclick="moveProd(${idx},1)">▼</button>`
+    : `<button class="btn btn-ghost btn-sm" disabled style="opacity:.3">▼</button>`;
   return `<div class="product-card">
     <div class="product-thumb">${imgHtml}</div>
     <div class="product-body">
-      <div class="product-name">${escHtml(p.name)} ${!p.is_active ? '<span class="badge badge-red">Inativo</span>' : ''}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <div class="product-name" style="margin:0">${escHtml(p.name)} ${!p.is_active ? '<span class="badge badge-red">Inativo</span>' : ''}</div>
+        <div style="display:flex;gap:2px">${upBtn}${downBtn}</div>
+      </div>
       <div class="product-desc">${escHtml(p.description || '')}</div>
       <div style="margin-bottom:8px">${stockLabel}</div>
       ${p.delivery_days != null ? `<div style="font-size:12px;color:var(--muted);margin-bottom:8px">⏱️ Prazo de entrega: ${p.delivery_days === 0 ? 'Imediato' : p.delivery_days + ' dia' + (p.delivery_days !== 1 ? 's úteis' : ' útil')}</div>` : ''}
@@ -1537,6 +1547,21 @@ function admProductCard(p) {
       </div>
     </div>
   </div>`;
+}
+
+async function moveProd(idx, dir) {
+  const arr  = window._admCatData;
+  const swapIdx = idx + dir;
+  if (swapIdx < 0 || swapIdx >= arr.length) return;
+  // Troca sort_order entre os dois itens
+  const a = arr[idx], b = arr[swapIdx];
+  const oA = a.sort_order ?? idx;
+  const oB = b.sort_order ?? swapIdx;
+  await Promise.all([
+    sb.from('products').update({ sort_order: oB }).eq('id', a.id),
+    sb.from('products').update({ sort_order: oA }).eq('id', b.id)
+  ]);
+  loadAdmCat();
 }
 
 function openNewProductModal() {
