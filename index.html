@@ -2121,11 +2121,13 @@ function openPolicyEditor(section) {
   }
 
   if (section === 'points') {
+    window._policyEditKey = null; // força reinício limpo
     renderPolicyTableEditor('points');
     return;
   }
 
   if (section === 'prizes') {
+    window._policyEditKey = null; // força reinício limpo
     renderPolicyTableEditor('prizes');
     return;
   }
@@ -2150,14 +2152,16 @@ async function savePolicyRules() {
 function renderPolicyTableEditor(type) {
   const isPoints = type === 'points';
   const key  = isPoints ? 'policy_points' : 'policy_prizes';
-  const data = JSON.parse(JSON.stringify(_policyData[key] || [])); // cópia
+  // Só reinicia os dados se for uma abertura nova (key mudou ou forçou reset)
+  if (window._policyEditKey !== key || !window._policyEditData) {
+    window._policyEditData = JSON.parse(JSON.stringify(_policyData[key] || []));
+  }
+  window._policyEditKey = key;
+  const data = window._policyEditData;
   const title = isPoints ? '📊 Editar Tabela de Pontuação' : '🎁 Editar Catálogo de Prêmios';
   const catOptions = isPoints
     ? ['📊 Desempenho e Metas','📚 Capacitação e Desenvolvimento','🤝 Cultura, Engajamento e Colaboração']
     : ['🎉 Experiências','💳 Valor','👕 Produtos Conexa Saúde','📚 Desenvolvimento Profissional'];
-
-  window._policyEditData = data;
-  window._policyEditKey  = key;
 
   function rowHtml(r, i) {
     if (isPoints) {
