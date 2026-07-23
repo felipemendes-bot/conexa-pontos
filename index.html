@@ -723,7 +723,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   if (urlError) {
     showLogin();
     showLoginBanner(
-      '⏰ O link de convite expirou ou é inválido.<br>Peça ao RH para reenviar o convite.',
+      '⏰ O link de convite expirou ou é inválido.<br>Digite seu e-mail abaixo e clique em <strong>"Esqueci minha senha"</strong> para receber um novo link.',
       'err'
     );
     return;
@@ -759,7 +759,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     });
     if (error) {
       showLoginBanner(
-        '⏰ O link de convite expirou ou já foi utilizado.<br>Peça ao RH para reenviar o convite.',
+        '⏰ O link de convite expirou ou já foi utilizado.<br>Digite seu e-mail abaixo e clique em <strong>"Esqueci minha senha"</strong> para receber um novo link.',
         'err'
       );
     } else if (data?.user) {
