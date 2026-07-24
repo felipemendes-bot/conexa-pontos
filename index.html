@@ -71,6 +71,16 @@
     .btn-danger { background: var(--danger); color: #fff; }
     .btn-danger:hover { background: #bf2600; }
     .btn-full { width: 100%; }
+    .emp-menu { position: relative; display: inline-block; }
+    .emp-menu-btn { background: transparent; border: 2px solid var(--border); border-radius: var(--radius); padding: 4px 10px; cursor: pointer; font-size: 18px; line-height: 1; color: var(--muted); transition: all 0.15s; }
+    .emp-menu-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .emp-menu-dropdown { display: none; position: absolute; right: 0; top: 110%; background: #fff; border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 4px 16px rgba(0,0,0,0.12); z-index: 999; min-width: 180px; padding: 4px 0; }
+    .emp-menu-dropdown.open { display: block; }
+    .emp-menu-item { display: flex; align-items: center; gap: 8px; padding: 9px 14px; font-size: 13px; cursor: pointer; color: var(--text); transition: background 0.12s; white-space: nowrap; }
+    .emp-menu-item:hover { background: var(--bg); }
+    .emp-menu-item.danger { color: var(--danger); }
+    .emp-menu-item.disabled { opacity: 0.4; pointer-events: none; }
+    .emp-menu-sep { border: none; border-top: 1px solid var(--border); margin: 4px 0; }
     .btn-sm { padding: 6px 12px; font-size: 13px; }
 
     /* ── APP SHELL ── */
@@ -1295,15 +1305,20 @@ function renderEmpsTable(list) {
         ? '<span class="badge badge-green">✅ Ativo</span>'
         : '<span class="badge badge-red">🚫 Inativo</span>'}</td>
       <td>
-        <div class="flex gap-2" style="flex-wrap:wrap">
-          <button class="btn btn-primary btn-sm" onclick="openAdjBalModal('${e.id}','${escJs(e.name)}',${e.points_balance})" ${!ativo?'disabled style="opacity:.4"':''}>⭐ Saldo</button>
-          <button class="btn btn-ghost btn-sm" onclick="openEditEmpModal('${e.id}','${escJs(e.name)}','${escJs(e.department||'')}','${e.role}')">✏️</button>
-          ${isMe ? '' : ativo
-            ? `<button class="btn btn-ghost btn-sm" style="color:var(--warning);border-color:var(--warning)" onclick="confirmToggleEmp('${e.id}','${escJs(e.name)}',false)">🚫 Desativar</button>`
-            : `<button class="btn btn-ghost btn-sm" style="color:var(--success);border-color:var(--success)" onclick="confirmToggleEmp('${e.id}','${escJs(e.name)}',true)">✅ Reativar</button>`
-          }
-          ${!isMe && ativo ? `<button class="btn btn-ghost btn-sm" style="color:var(--info);border-color:var(--info)" onclick="resetSenha('${escJs(e.email||'')}','${escJs(e.name)}')">🔑 Reset senha</button>` : ''}
-          ${isMe ? '' : `<button class="btn btn-danger btn-sm" onclick="confirmDeleteEmp('${e.id}','${escJs(e.name)}')">🗑️</button>`}
+        <div class="emp-menu" id="empmenu_${e.id}">
+          <button class="emp-menu-btn" onclick="toggleEmpMenu('${e.id}')">⋮</button>
+          <div class="emp-menu-dropdown" id="empdrop_${e.id}">
+            <div class="emp-menu-item ${!ativo?'disabled':''}" onclick="closeEmpMenus();openAdjBalModal('${e.id}','${escJs(e.name)}',${e.points_balance})">⭐ Ajustar Saldo</div>
+            <div class="emp-menu-item" onclick="closeEmpMenus();openEditEmpModal('${e.id}','${escJs(e.name)}','${escJs(e.department||'')}','${e.role}')">✏️ Editar</div>
+            ${e.points_balance > 0 ? `<div class="emp-menu-item" onclick="closeEmpMenus();reenviarNotifPontos('${escJs(e.email||'')}','${escJs(e.name)}',${e.points_balance})">📧 Enviar e-mail de pontos</div>` : ''}
+            ${!isMe ? `<hr class="emp-menu-sep">` : ''}
+            ${!isMe && ativo ? `<div class="emp-menu-item" onclick="closeEmpMenus();resetSenha('${escJs(e.email||'')}','${escJs(e.name)}')">🔑 Reset senha</div>` : ''}
+            ${!isMe ? (ativo
+              ? `<div class="emp-menu-item danger" onclick="closeEmpMenus();confirmToggleEmp('${e.id}','${escJs(e.name)}',false)">🚫 Desativar</div>`
+              : `<div class="emp-menu-item" style="color:var(--success)" onclick="closeEmpMenus();confirmToggleEmp('${e.id}','${escJs(e.name)}',true)">✅ Reativar</div>`
+            ) : ''}
+            ${!isMe ? `<div class="emp-menu-item danger" onclick="closeEmpMenus();confirmDeleteEmp('${e.id}','${escJs(e.name)}')">🗑️ Excluir</div>` : ''}
+          </div>
         </div>
       </td>
     </tr>`;
@@ -1511,6 +1526,24 @@ async function applyAdjBal(id, name, curBal) {
 // ═══════════════════════════════════════════════
 // NOTIFY ALL WITH POINTS (retroativo)
 // ═══════════════════════════════════════════════
+function toggleEmpMenu(id) {
+  const drop = document.getElementById('empdrop_' + id);
+  const isOpen = drop.classList.contains('open');
+  closeEmpMenus();
+  if (!isOpen) drop.classList.add('open');
+}
+function closeEmpMenus() {
+  document.querySelectorAll('.emp-menu-dropdown.open').forEach(d => d.classList.remove('open'));
+}
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.emp-menu')) closeEmpMenus();
+});
+
+async function reenviarNotifPontos(email, name, balance) {
+  await sendPointsEmail(email, name, balance, 'Seus pontos acumulados no Desafio de Saúde Conexa 2026', balance);
+  toast(`📧 E-mail enviado para ${name}!`);
+}
+
 async function openNotifyAllModal() {
   const { data: emps, error } = await sb.from('profiles')
     .select('id, name, email, points_balance')
