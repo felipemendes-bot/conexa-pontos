@@ -1515,7 +1515,6 @@ async function openNotifyAllModal() {
   const { data: emps, error } = await sb.from('profiles')
     .select('id, name, email, points_balance')
     .eq('is_active', true)
-    .eq('role', 'employee')
     .gt('points_balance', 0)
     .order('name');
   if (error || !emps?.length) {
@@ -2366,7 +2365,7 @@ async function loadReports() {
   el.innerHTML = `<div class="center-msg"><div class="spinner"></div></div>`;
   document.getElementById('btnExportReport').style.display = 'none';
 
-  const [rankRed, rankPts, topProds, statsRes, recentTxRes, activeEmpsData] = await Promise.all([
+  const [rankRed, rankPts, topProds, statsRes, recentTxRes, activeEmpsData, allTxRes] = await Promise.all([
     // Ranking por número de resgates (não cancelados)
     sb.from('redemptions')
       .select('employee_id, profiles!redemptions_employee_id_fkey(name, email, department)')
@@ -2383,7 +2382,7 @@ async function loadReports() {
     Promise.all([
       sb.from('redemptions').select('id', { count: 'exact' }).neq('status', 'cancelled'),
       sb.from('point_transactions').select('points').gt('points', 0),
-      sb.from('profiles').select('id', { count: 'exact' }).eq('role', 'employee').eq('is_active', true),
+      sb.from('profiles').select('id', { count: 'exact' }).eq('is_active', true),
       sb.from('redemptions').select('id', { count: 'exact' }).eq('status', 'pending'),
       sb.from('products').select('id', { count: 'exact' }).eq('is_active', true),
     ]),
@@ -2394,8 +2393,13 @@ async function loadReports() {
     // Lista completa de colaboradores ativos
     sb.from('profiles')
       .select('name, email, department, points_balance, created_at')
-      .eq('role', 'employee').eq('is_active', true)
+      .eq('is_active', true)
       .order('name', { ascending: true }),
+    // Extrato completo de pontos lançados
+    sb.from('point_transactions')
+      .select('id, points, description, type, created_at, profiles!point_transactions_employee_id_fkey(name, email, department), admin:profiles!point_transactions_admin_id_fkey(name)')
+      .gt('points', 0)
+      .order('created_at', { ascending: false }),
   ]);
 
   // Processa ranking de resgates
@@ -2517,7 +2521,7 @@ async function loadReports() {
     </div>
 
     <!-- Últimas movimentações -->
-    <div class="card">
+    <div class="card" style="margin-bottom:20px">
       <div class="card-title">📊 Últimas Movimentações</div>
       ${!recentTxRes.data || recentTxRes.data.length === 0 ? html_empty('📊', 'Nenhuma movimentação ainda') : `
       <div class="table-wrap"><table>
@@ -2526,6 +2530,24 @@ async function loadReports() {
           <td>${escHtml(t.profiles?.name || '—')}</td>
           <td>${escHtml(t.description || '—')}</td>
           <td class="${t.points > 0 ? 'txt-green' : 'txt-red'}">${t.points > 0 ? '+' : ''}${fPts(t.points)} pts</td>
+          <td class="txt-muted">${fDate(t.created_at)}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>`}
+    </div>
+
+    <!-- Extrato completo de pontos lançados -->
+    <div class="card">
+      <div class="card-title">📋 Extrato de Pontos Lançados</div>
+      ${!allTxRes.data || allTxRes.data.length === 0 ? html_empty('📋', 'Nenhum lançamento ainda') : `
+      <div class="table-wrap"><table>
+        <thead><tr><th>Colaborador</th><th>E-mail</th><th>Setor</th><th>Descrição</th><th style="text-align:right">Pontos</th><th>Lançado por</th><th>Data</th></tr></thead>
+        <tbody>${(allTxRes.data || []).map(t => `<tr>
+          <td><strong>${escHtml(t.profiles?.name || '—')}</strong></td>
+          <td class="txt-muted">${escHtml(t.profiles?.email || '—')}</td>
+          <td class="txt-muted">${escHtml(t.profiles?.department || '—')}</td>
+          <td>${escHtml(t.description || '—')}</td>
+          <td style="text-align:right"><strong style="color:var(--primary)">+${fPts(t.points)} pts</strong></td>
+          <td class="txt-muted">${escHtml(t.admin?.name || 'Sistema')}</td>
           <td class="txt-muted">${fDate(t.created_at)}</td>
         </tr>`).join('')}</tbody>
       </table></div>`}
@@ -2542,6 +2564,7 @@ async function loadReports() {
     topByPts,
     topProdsList,
     activeEmpsList: activeEmpsData.data || [],
+    allTxList: allTxRes.data || [],
   };
   document.getElementById('btnExportReport').style.display = 'inline-flex';
 }
@@ -2607,6 +2630,23 @@ function exportReports() {
   const wsEmps = XLSX.utils.aoa_to_sheet(empsData);
   wsEmps['!cols'] = [{ wch: 30 }, { wch: 34 }, { wch: 22 }, { wch: 18 }, { wch: 18 }];
   XLSX.utils.book_append_sheet(wb, wsEmps, 'Colaboradores Ativos');
+
+  // ── Aba 6: Extrato de Pontos Lançados ──
+  const txData = [
+    ['Colaborador', 'E-mail', 'Setor', 'Descrição', 'Pontos', 'Lançado por', 'Data'],
+    ...(d.allTxList || []).map(t => [
+      t.profiles?.name || '—',
+      t.profiles?.email || '—',
+      t.profiles?.department || '—',
+      t.description || '—',
+      t.points || 0,
+      t.admin?.name || 'Sistema',
+      t.created_at ? new Date(t.created_at).toLocaleString('pt-BR') : '—',
+    ]),
+  ];
+  const wsTx = XLSX.utils.aoa_to_sheet(txData);
+  wsTx['!cols'] = [{ wch: 30 }, { wch: 34 }, { wch: 22 }, { wch: 36 }, { wch: 10 }, { wch: 24 }, { wch: 20 }];
+  XLSX.utils.book_append_sheet(wb, wsTx, 'Extrato de Pontos');
 
   // Gera e baixa o arquivo
   const fileName = `relatorio-conexa-pontos-${new Date().toISOString().slice(0,10)}.xlsx`;
