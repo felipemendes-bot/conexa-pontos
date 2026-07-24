@@ -450,6 +450,7 @@
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-ghost" onclick="openImportPointsModal()">📥 Importar Pontos</button>
           <button class="btn btn-ghost" onclick="openImportEmpsModal()">📥 Importar Funcionários</button>
+          <button class="btn btn-ghost" onclick="openNotifyAllModal()">📧 Notificar com Pontos</button>
           <button class="btn btn-primary" onclick="openNewEmpModal()">+ Novo Funcionário</button>
         </div>
       </div>
@@ -1505,6 +1506,52 @@ async function applyAdjBal(id, name, curBal) {
   else if (op === 'add')    toast(`✅ ${fPts(Math.abs(pts))} pontos adicionados para ${name}!`);
   else                      toast(`➖ ${fPts(Math.abs(pts))} pontos removidos de ${name}.`);
   loadEmps();
+}
+
+// ═══════════════════════════════════════════════
+// NOTIFY ALL WITH POINTS (retroativo)
+// ═══════════════════════════════════════════════
+async function openNotifyAllModal() {
+  const { data: emps, error } = await sb.from('profiles')
+    .select('id, name, email, points_balance')
+    .eq('is_active', true)
+    .eq('role', 'employee')
+    .gt('points_balance', 0)
+    .order('name');
+  if (error || !emps?.length) {
+    toast('Nenhum colaborador com pontos encontrado.', 'err'); return;
+  }
+  openModal(`<div class="modal-title">📧 Notificar Colaboradores com Pontos</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px">
+      Serão enviados e-mails informando o saldo atual para <strong>${emps.length} colaborador${emps.length !== 1 ? 'es' : ''}</strong> que já possuem pontos na plataforma.
+    </p>
+    <div id="notif_all_preview"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" id="notif_all_btn" onclick="runNotifyAll(${JSON.stringify(emps).replace(/"/g,'&quot;')})">Enviar Notificações</button>
+    </div>`);
+}
+
+async function runNotifyAll(emps) {
+  const btn = document.getElementById('notif_all_btn');
+  const preview = document.getElementById('notif_all_preview');
+  btn.disabled = true;
+  let sent = 0;
+  for (let i = 0; i < emps.length; i++) {
+    const emp = emps[i];
+    preview.innerHTML = `<div class="import-progress">⏳ Enviando ${i + 1} de ${emps.length}: ${escHtml(emp.name || emp.email)}…</div>`;
+    try {
+      await sendPointsEmail(emp.email, emp.name || emp.email, emp.points_balance, 'Seus pontos acumulados no Desafio de Saúde Conexa 2026', emp.points_balance);
+      sent++;
+    } catch(e) {}
+    await new Promise(r => setTimeout(r, 300));
+  }
+  preview.innerHTML = `<div class="import-progress" style="background:var(--primary-light);color:var(--primary-dark)">
+    ✅ ${sent} e-mail${sent !== 1 ? 's' : ''} enviado${sent !== 1 ? 's' : ''} com sucesso!
+  </div>`;
+  btn.textContent = 'Fechar';
+  btn.disabled = false;
+  btn.onclick = closeModal;
 }
 
 // ═══════════════════════════════════════════════
