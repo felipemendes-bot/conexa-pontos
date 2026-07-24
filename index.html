@@ -2370,10 +2370,13 @@ async function loadReports() {
     sb.from('redemptions')
       .select('employee_id, profiles!redemptions_employee_id_fkey(name, email, department)')
       .neq('status', 'cancelled'),
-    // Ranking por pontos acumulados (total de créditos)
-    sb.from('point_transactions')
-      .select('employee_id, points, profiles!point_transactions_employee_id_fkey(name, email, department)')
-      .gt('points', 0),
+    // Ranking por saldo atual
+    sb.from('profiles')
+      .select('id, name, email, department, points_balance')
+      .eq('is_active', true)
+      .gt('points_balance', 0)
+      .order('points_balance', { ascending: false })
+      .limit(10),
     // Prêmios mais resgatados
     sb.from('redemptions')
       .select('product_id, products(name)')
@@ -2395,10 +2398,9 @@ async function loadReports() {
       .select('name, email, department, points_balance, created_at')
       .eq('is_active', true)
       .order('name', { ascending: true }),
-    // Extrato completo de pontos lançados
+    // Extrato completo de pontos lançados (créditos e débitos)
     sb.from('point_transactions')
       .select('id, points, description, type, created_at, profiles!point_transactions_employee_id_fkey(name, email, department), admin:profiles!point_transactions_admin_id_fkey(name)')
-      .gt('points', 0)
       .order('created_at', { ascending: false }),
   ]);
 
@@ -2413,16 +2415,13 @@ async function loadReports() {
     .sort((a, b) => b[1] - a[1]).slice(0, 10)
     .map(([id, cnt]) => ({ ...redMeta[id], count: cnt }));
 
-  // Processa ranking por pontos ganhos
-  const ptsEarned = {};
-  const ptsMeta   = {};
-  (rankPts.data || []).forEach(r => {
-    ptsEarned[r.employee_id] = (ptsEarned[r.employee_id] || 0) + r.points;
-    ptsMeta[r.employee_id]   = { name: r.profiles?.name || '—', email: r.profiles?.email || '—', dept: r.profiles?.department || '—' };
-  });
-  const topByPts = Object.entries(ptsEarned)
-    .sort((a, b) => b[1] - a[1]).slice(0, 10)
-    .map(([id, pts]) => ({ ...ptsMeta[id], pts }));
+  // Ranking por saldo atual
+  const topByPts = (rankPts.data || []).map(r => ({
+    name: r.name || '—',
+    email: r.email || '—',
+    dept: r.department || '—',
+    pts: r.points_balance || 0,
+  }));
 
   // Processa prêmios mais resgatados
   const prodCount = {};
