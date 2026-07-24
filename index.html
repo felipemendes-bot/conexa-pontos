@@ -2644,7 +2644,7 @@ function previewImportEmps() {
       let rows = [];
       if (file.name.endsWith('.csv')) {
         // Parse CSV
-        const text = new TextDecoder('utf-8').decode(e.target.result);
+        let text; try { text = new TextDecoder('utf-8', { fatal: true }).decode(e.target.result); } catch(_) { text = new TextDecoder('windows-1252').decode(e.target.result); }
         const lines = text.split(/\r?\n/).filter(l => l.trim());
         rows = lines.slice(1).map(l => l.split(/[;,]/).map(c => c.trim().replace(/^"|"$/g, '')));
       } else {
@@ -2746,7 +2746,7 @@ function previewImportPoints() {
     try {
       let rows = [];
       if (file.name.endsWith('.csv')) {
-        const text = new TextDecoder('utf-8').decode(e.target.result);
+        let text; try { text = new TextDecoder('utf-8', { fatal: true }).decode(e.target.result); } catch(_) { text = new TextDecoder('windows-1252').decode(e.target.result); }
         const lines = text.split(/\r?\n/).filter(l => l.trim());
         rows = lines.slice(1).map(l => l.split(/[;,]/).map(c => c.trim().replace(/^"|"$/g, '')));
       } else {
