@@ -326,8 +326,9 @@
       <div class="nav-link" data-view="myorders" onclick="goTo('myorders')">
         <span class="icon">📦</span> Meus Resgates
       </div>
-      <div class="nav-link" data-view="extrato" onclick="goTo('extrato')">
+      <div class="nav-link" data-view="extrato" onclick="goTo('extrato'); clearNotifBadge()">
         <span class="icon">📑</span> Extrato de Pontos
+        <span id="badgeNotif" style="display:none; background:#EF4465; color:#fff; border-radius:20px; font-size:11px; padding:1px 7px; margin-left:4px;"></span>
       </div>
       <div class="nav-link" data-view="policy" onclick="goTo('policy')">
         <span class="icon">📄</span> Política do Programa
@@ -814,6 +815,7 @@ async function bootUser(user) {
     sessionStorage.removeItem('cp_boot_retry');
     goTo('home');
     setTimeout(() => carregarBadgeSolic(), 1500);
+    setTimeout(() => loadNotifBadge(), 2000);
   } finally {
     _booting = false;
   }
@@ -1492,6 +1494,10 @@ async function applyAdjBal(id, name, curBal) {
       employee_id: id, admin_id: curProfile.id,
       points: pts, description: desc, type: txType
     });
+    if (op === 'add') {
+      const { data: empData } = await sb.from('profiles').select('email').eq('id', id).single();
+      if (empData?.email) sendPointsEmail(empData.email, name, pts, desc, newBal);
+    }
   }
 
   closeModal();
@@ -1875,6 +1881,50 @@ async function sendRedeemEmail(productName, pointsCost) {
       })
     });
   } catch (err) { console.warn('Email não enviado:', err); }
+}
+
+async function sendPointsEmail(toEmail, toName, points, desc, newBalance) {
+  try {
+    const token = (await sb.auth.getSession()).data.session?.access_token;
+    await fetch(`${CFG.edgeFnBaseUrl}/send-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({
+        type: 'pontos_creditados',
+        to_emails: [toEmail],
+        employee_name: toName,
+        employee_email: toEmail,
+        employee_dept: '',
+        detail: `${fPts(points)} pontos — ${desc}. Saldo atual: ${fPts(newBalance)} pts`,
+        date: new Date().toLocaleString('pt-BR'),
+      })
+    });
+  } catch (err) { console.warn('Email de pontos não enviado:', err); }
+}
+
+// ── Notificações in-app (badge no Extrato) ──
+function getNotifKey() { return `cp_notif_seen_${curProfile?.id}`; }
+
+async function loadNotifBadge() {
+  try {
+    const lastSeen = localStorage.getItem(getNotifKey()) || '2000-01-01';
+    const { count } = await sb.from('point_transactions')
+      .select('id', { count: 'exact' })
+      .eq('employee_id', curProfile.id)
+      .gt('points', 0)
+      .gt('created_at', lastSeen);
+    const badge = document.getElementById('badgeNotif');
+    if (badge && count > 0) {
+      badge.textContent = count > 9 ? '9+' : count;
+      badge.style.display = 'inline';
+    }
+  } catch(e) {}
+}
+
+function clearNotifBadge() {
+  localStorage.setItem(getNotifKey(), new Date().toISOString());
+  const badge = document.getElementById('badgeNotif');
+  if (badge) badge.style.display = 'none';
 }
 
 // ═══════════════════════════════════════════════
@@ -2699,7 +2749,7 @@ async function processImportPoints() {
     const pts = parseInt(ptsStr);
     preview.innerHTML = `<div class="import-progress">⏳ Processando ${i + 1} de ${_importPtsRows.length}: ${escHtml(email)}…</div>`;
     // Busca perfil pelo e-mail (case-insensitive)
-    const { data: prof } = await sb.from('profiles').select('id, points_balance').ilike('email', email).eq('is_active', true).single();
+    const { data: prof } = await sb.from('profiles').select('id, name, points_balance').ilike('email', email).eq('is_active', true).single();
     if (!prof) { notFound++; continue; }
     const newBal = (prof.points_balance || 0) + pts;
     await sb.from('profiles').update({ points_balance: newBal }).eq('id', prof.id);
@@ -2710,6 +2760,7 @@ async function processImportPoints() {
       description: desc || 'Importação em massa',
       type: 'credit'
     });
+    sendPointsEmail(email, prof.name || email, pts, desc || 'Importação em massa', newBal);
     ok++;
   }
 
