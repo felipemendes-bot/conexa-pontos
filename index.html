@@ -2694,11 +2694,12 @@ async function processImportPoints() {
   let ok = 0, notFound = 0;
 
   for (let i = 0; i < _importPtsRows.length; i++) {
-    const [email, ptsStr, desc] = _importPtsRows[i];
+    const [emailRaw, ptsStr, desc] = _importPtsRows[i];
+    const email = emailRaw.trim().toLowerCase();
     const pts = parseInt(ptsStr);
     preview.innerHTML = `<div class="import-progress">⏳ Processando ${i + 1} de ${_importPtsRows.length}: ${escHtml(email)}…</div>`;
-    // Busca perfil pelo e-mail
-    const { data: prof } = await sb.from('profiles').select('id, points_balance').eq('email', email).eq('is_active', true).single();
+    // Busca perfil pelo e-mail (case-insensitive)
+    const { data: prof } = await sb.from('profiles').select('id, points_balance').ilike('email', email).eq('is_active', true).single();
     if (!prof) { notFound++; continue; }
     const newBal = (prof.points_balance || 0) + pts;
     await sb.from('profiles').update({ points_balance: newBal }).eq('id', prof.id);
