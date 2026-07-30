@@ -1385,10 +1385,14 @@ function openNewEmpModal() {
 
 async function createEmp() {
   const name = document.getElementById('ne_name').value.trim();
-  const email = document.getElementById('ne_email').value.trim();
+  const email = document.getElementById('ne_email').value.trim().toLowerCase();
   const dept = document.getElementById('ne_dept').value.trim();
   const role = document.getElementById('ne_role').value;
   if (!name || !email) { toast('Preencha nome e e-mail.', 'err'); return; }
+
+  // Verifica duplicidade (case-insensitive) antes de criar
+  const { data: existing } = await sb.from('profiles').select('id, name').ilike('email', email).maybeSingle();
+  if (existing) { toast(`⚠️ Já existe um cadastro com esse e-mail: ${existing.name}`, 'err'); return; }
 
   // Call edge function to invite user server-side
   const token = (await sb.auth.getSession()).data.session?.access_token;
@@ -2763,9 +2767,13 @@ async function processImportEmps() {
   const preview = document.getElementById('imp_emp_preview');
   for (let i = 0; i < _importEmpRows.length; i++) {
     preview.innerHTML = `<div class="import-progress">Importando… ${i + 1} de ${_importEmpRows.length}</div>`;
-    const [name, email, dept] = _importEmpRows[i];
+    const [name, emailRaw, dept] = _importEmpRows[i];
+    const email = (emailRaw || '').trim().toLowerCase();
     preview.innerHTML = `<div class="import-progress">⏳ Processando ${i + 1} de ${_importEmpRows.length}: ${escHtml(name)}…</div>`;
     try {
+      // Verifica duplicidade (case-insensitive) antes de criar
+      const { data: existing } = await sb.from('profiles').select('id').ilike('email', email).maybeSingle();
+      if (existing) { fail++; failedEmails.push(`${email} (já cadastrado)`); await new Promise(r => setTimeout(r, 300)); continue; }
       const res = await fetch(`${CFG.edgeFnBaseUrl}/create-employee`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
