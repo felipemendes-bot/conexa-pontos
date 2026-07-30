@@ -2320,13 +2320,15 @@ function renderPolicyTableEditor(type) {
     ? ['📊 Desempenho e Metas','📚 Capacitação e Desenvolvimento','🤝 Cultura, Engajamento e Colaboração']
     : ['🎉 Experiências','💳 Valor','👕 Produtos Conexa Saúde','📚 Desenvolvimento Profissional'];
 
+  // Sugestões de categoria: opções padrão + categorias já usadas nos dados atuais
+  const catSuggestions = Array.from(new Set([...catOptions, ...data.map(r => r.cat).filter(Boolean)]));
+  const catListId = `catlist_${type}`;
+
   function rowHtml(r, i) {
     if (isPoints) {
       return `<tr id="per_${i}" style="border-bottom:1px solid var(--border)">
         <td style="padding:4px 6px">
-          <select onchange="window._policyEditData[${i}].cat=this.value" style="width:100%;padding:4px;border:1px solid var(--border);border-radius:4px;font-size:12px">
-            ${catOptions.map(c => `<option ${r.cat===c?'selected':''}>${c}</option>`).join('')}
-          </select>
+          <input list="${catListId}" value="${escHtml(r.cat)}" oninput="window._policyEditData[${i}].cat=this.value" style="width:100%;padding:4px;border:1px solid var(--border);border-radius:4px;font-size:12px">
         </td>
         <td style="padding:4px 6px"><input value="${escHtml(r.action)}" oninput="window._policyEditData[${i}].action=this.value" style="width:100%;padding:4px;border:1px solid var(--border);border-radius:4px;font-size:13px"></td>
         <td style="padding:4px 6px"><input value="${escHtml(r.pts)}" oninput="window._policyEditData[${i}].pts=this.value" style="width:80px;padding:4px;border:1px solid var(--border);border-radius:4px;font-size:13px"></td>
@@ -2336,9 +2338,7 @@ function renderPolicyTableEditor(type) {
     } else {
       return `<tr id="per_${i}" style="border-bottom:1px solid var(--border)">
         <td style="padding:4px 6px">
-          <select onchange="window._policyEditData[${i}].cat=this.value" style="width:100%;padding:4px;border:1px solid var(--border);border-radius:4px;font-size:12px">
-            ${catOptions.map(c => `<option ${r.cat===c?'selected':''}>${c}</option>`).join('')}
-          </select>
+          <input list="${catListId}" value="${escHtml(r.cat)}" oninput="window._policyEditData[${i}].cat=this.value" style="width:100%;padding:4px;border:1px solid var(--border);border-radius:4px;font-size:12px">
         </td>
         <td style="padding:4px 6px"><input value="${escHtml(r.name)}" oninput="window._policyEditData[${i}].name=this.value" style="width:100%;padding:4px;border:1px solid var(--border);border-radius:4px;font-size:13px"></td>
         <td style="padding:4px 6px"><input value="${escHtml(r.pts)}" oninput="window._policyEditData[${i}].pts=this.value" style="width:80px;padding:4px;border:1px solid var(--border);border-radius:4px;font-size:13px"></td>
@@ -2354,6 +2354,8 @@ function renderPolicyTableEditor(type) {
 
   document.getElementById('modalBox').innerHTML = `
     <div class="modal-title">${title}</div>
+    <p style="font-size:12px;color:var(--muted);margin:-6px 0 10px 0">💡 Dica: para renomear um título de categoria (ex: prazo de um desafio), edite o campo <strong>Categoria</strong> em todas as linhas daquele grupo.</p>
+    <datalist id="${catListId}">${catSuggestions.map(c => `<option value="${escHtml(c)}">`).join('')}</datalist>
     <div style="max-height:55vh;overflow-y:auto;margin-bottom:12px">
       <table width="100%" style="font-size:13px;border-collapse:collapse">
         <thead><tr style="background:var(--bg)">${thead}</tr></thead>
