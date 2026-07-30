@@ -2861,6 +2861,7 @@ async function processImportPoints() {
   btn.disabled = true;
   const preview = document.getElementById('imp_pts_preview');
   let ok = 0, notFound = 0;
+  const notFoundEmails = [];
 
   for (let i = 0; i < _importPtsRows.length; i++) {
     const [emailRaw, ptsStr, desc] = _importPtsRows[i];
@@ -2869,7 +2870,7 @@ async function processImportPoints() {
     preview.innerHTML = `<div class="import-progress">⏳ Processando ${i + 1} de ${_importPtsRows.length}: ${escHtml(email)}…</div>`;
     // Busca perfil pelo e-mail (case-insensitive)
     const { data: prof } = await sb.from('profiles').select('id, name, points_balance').ilike('email', email).eq('is_active', true).single();
-    if (!prof) { notFound++; continue; }
+    if (!prof) { notFound++; notFoundEmails.push(email); continue; }
     const newBal = (prof.points_balance || 0) + pts;
     await sb.from('profiles').update({ points_balance: newBal }).eq('id', prof.id);
     await sb.from('point_transactions').insert({
@@ -2883,9 +2884,12 @@ async function processImportPoints() {
     ok++;
   }
 
+  const notFoundList = notFoundEmails.length
+    ? `<details style="margin-top:8px;font-size:12px"><summary style="cursor:pointer;color:var(--danger)">Ver ${notFoundEmails.length} e-mail(s) não encontrado(s)</summary><div style="margin-top:6px;padding:8px;background:#fff;border-radius:6px;max-height:120px;overflow-y:auto">${notFoundEmails.map(e => `<div>${escHtml(e)}</div>`).join('')}</div></details>`
+    : '';
   preview.innerHTML = `<div class="import-progress" style="background:${notFound > 0 ? '#ffebe6' : 'var(--primary-light)'};color:${notFound > 0 ? 'var(--danger)' : 'var(--primary-dark)'}">
     ✅ ${ok} colaborador${ok !== 1 ? 'es' : ''} atualizado${ok !== 1 ? 's' : ''}${notFound > 0 ? ` · ⚠️ ${notFound} e-mail${notFound !== 1 ? 's' : ''} não encontrado${notFound !== 1 ? 's' : ''} (inativo ou inexistente)` : ''}
-  </div>`;
+  </div>${notFoundList}`;
   btn.textContent = 'Fechar';
   btn.disabled = false;
   btn.onclick = () => { closeModal(); loadEmps(); };
