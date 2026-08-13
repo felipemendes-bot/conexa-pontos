@@ -461,6 +461,7 @@
           <button class="btn btn-ghost" onclick="openImportPointsModal()">📥 Importar Pontos</button>
           <button class="btn btn-ghost" onclick="openImportEmpsModal()">📥 Importar Funcionários</button>
           <button class="btn btn-ghost" onclick="openNotifyAllModal()">📧 Notificar com Pontos</button>
+          <button class="btn btn-ghost" onclick="openNotifyTodayModal()">📬 Notificar Pontos de Hoje</button>
           <button class="btn btn-primary" onclick="openNewEmpModal()">+ Novo Funcionário</button>
         </div>
       </div>
@@ -1578,6 +1579,71 @@ async function runNotifyAll(emps) {
     preview.innerHTML = `<div class="import-progress">⏳ Enviando ${i + 1} de ${emps.length}: ${escHtml(emp.name || emp.email)}…</div>`;
     try {
       await sendPointsEmail(emp.email, emp.name || emp.email, emp.points_balance, 'Seus pontos acumulados no Desafio de Saúde Conexa 2026', emp.points_balance);
+      sent++;
+    } catch(e) {}
+    await new Promise(r => setTimeout(r, 300));
+  }
+  preview.innerHTML = `<div class="import-progress" style="background:var(--primary-light);color:var(--primary-dark)">
+    ✅ ${sent} e-mail${sent !== 1 ? 's' : ''} enviado${sent !== 1 ? 's' : ''} com sucesso!
+  </div>`;
+  btn.textContent = 'Fechar';
+  btn.disabled = false;
+  btn.onclick = closeModal;
+}
+
+// Retorna o início do dia de hoje (00:00) no horário de Brasília, em ISO
+function getStartOfTodayBRT() {
+  const brtDateStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }); // "YYYY-MM-DD"
+  return new Date(`${brtDateStr}T00:00:00-03:00`).toISOString();
+}
+
+async function openNotifyTodayModal() {
+  const startOfToday = getStartOfTodayBRT();
+  const { data: txs, error } = await sb.from('point_transactions')
+    .select('employee_id, points, description, profiles!point_transactions_employee_id_fkey(name, email, points_balance)')
+    .gt('points', 0)
+    .gte('created_at', startOfToday);
+
+  if (error || !txs?.length) {
+    toast('Nenhum ponto foi creditado hoje ainda.', 'err'); return;
+  }
+
+  // Agrupa por colaborador: soma os pontos de hoje e junta as descrições
+  const grouped = {};
+  txs.forEach(t => {
+    if (!t.profiles?.email) return;
+    if (!grouped[t.employee_id]) {
+      grouped[t.employee_id] = { name: t.profiles.name, email: t.profiles.email, balance: t.profiles.points_balance, totalHoje: 0, descs: [] };
+    }
+    grouped[t.employee_id].totalHoje += t.points;
+    if (!grouped[t.employee_id].descs.includes(t.description)) grouped[t.employee_id].descs.push(t.description);
+  });
+  const emps = Object.values(grouped);
+
+  if (!emps.length) { toast('Nenhum ponto foi creditado hoje ainda.', 'err'); return; }
+
+  openModal(`<div class="modal-title">📬 Notificar Pontos de Hoje</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px">
+      Serão enviados e-mails para <strong>${emps.length} colaborador${emps.length !== 1 ? 'es' : ''}</strong> que receberam pontos hoje, resumindo o total do dia e o saldo atual — um único e-mail por pessoa, mesmo que tenham recebido pontos em mais de uma importação hoje.
+    </p>
+    <div id="notif_today_preview"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" id="notif_today_btn" onclick="runNotifyToday(${JSON.stringify(emps).replace(/"/g,'&quot;')})">Enviar Notificações</button>
+    </div>`);
+}
+
+async function runNotifyToday(emps) {
+  const btn = document.getElementById('notif_today_btn');
+  const preview = document.getElementById('notif_today_preview');
+  btn.disabled = true;
+  let sent = 0;
+  for (let i = 0; i < emps.length; i++) {
+    const emp = emps[i];
+    preview.innerHTML = `<div class="import-progress">⏳ Enviando ${i + 1} de ${emps.length}: ${escHtml(emp.name || emp.email)}…</div>`;
+    try {
+      const detalhe = `${fPts(emp.totalHoje)} pontos hoje — ${emp.descs.join(', ')}`;
+      await sendPointsEmail(emp.email, emp.name || emp.email, emp.totalHoje, detalhe, emp.balance);
       sent++;
     } catch(e) {}
     await new Promise(r => setTimeout(r, 300));
@@ -2808,7 +2874,7 @@ function openImportPointsModal() {
       Faça upload de uma planilha <strong>Excel (.xlsx)</strong> ou <strong>CSV</strong> com as colunas:<br>
       <code style="background:var(--bg);padding:2px 6px;border-radius:4px">Email | Pontos | Descrição</code>
     </p>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:14px">A primeira linha deve ser o cabeçalho. Os pontos serão adicionados ao saldo atual de cada colaborador.</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:14px">A primeira linha deve ser o cabeçalho. Os pontos serão adicionados ao saldo atual de cada colaborador. ⚠️ Se o colaborador já tiver recebido pontos com a <strong>mesma descrição</strong> antes, a linha será ignorada (não soma de novo) — útil para evitar duplicar pontos ao reimportar uma planilha. 📧 Nenhum e-mail é enviado durante a importação — depois de subir todas as planilhas do dia, use o botão <strong>"Notificar Pontos de Hoje"</strong> para avisar todo mundo de uma vez.</p>
     <div class="form-group">
       <input type="file" id="imp_pts_file" accept=".xlsx,.xls,.csv" onchange="previewImportPoints()">
     </div>
@@ -2870,36 +2936,48 @@ async function processImportPoints() {
   const btn = document.getElementById('imp_pts_btn');
   btn.disabled = true;
   const preview = document.getElementById('imp_pts_preview');
-  let ok = 0, notFound = 0;
+  let ok = 0, notFound = 0, duplicated = 0;
   const notFoundEmails = [];
+  const duplicatedEmails = [];
 
   for (let i = 0; i < _importPtsRows.length; i++) {
-    const [emailRaw, ptsStr, desc] = _importPtsRows[i];
+    const [emailRaw, ptsStr, descRaw] = _importPtsRows[i];
     const email = emailRaw.trim().toLowerCase();
     const pts = parseInt(ptsStr);
+    const desc = descRaw || 'Importação em massa';
     preview.innerHTML = `<div class="import-progress">⏳ Processando ${i + 1} de ${_importPtsRows.length}: ${escHtml(email)}…</div>`;
     // Busca perfil pelo e-mail (case-insensitive)
     const { data: prof } = await sb.from('profiles').select('id, name, points_balance').ilike('email', email).eq('is_active', true).single();
     if (!prof) { notFound++; notFoundEmails.push(email); continue; }
+
+    // Evita duplicar pontos: se esse colaborador já recebeu pontos com essa mesma descrição, pula
+    const { data: jaTem } = await sb.from('point_transactions')
+      .select('id').eq('employee_id', prof.id).eq('description', desc).limit(1).maybeSingle();
+    if (jaTem) { duplicated++; duplicatedEmails.push(`${email} (já recebeu "${desc}")`); continue; }
+
     const newBal = (prof.points_balance || 0) + pts;
     await sb.from('profiles').update({ points_balance: newBal }).eq('id', prof.id);
     await sb.from('point_transactions').insert({
       employee_id: prof.id,
       admin_id: curProfile.id,
       points: pts,
-      description: desc || 'Importação em massa',
+      description: desc,
       type: 'credit'
     });
-    sendPointsEmail(email, prof.name || email, pts, desc || 'Importação em massa', newBal);
+    // Não envia e-mail aqui — use o botão "📧 Notificar Pontos de Hoje" no final do dia
     ok++;
   }
 
   const notFoundList = notFoundEmails.length
     ? `<details style="margin-top:8px;font-size:12px"><summary style="cursor:pointer;color:var(--danger)">Ver ${notFoundEmails.length} e-mail(s) não encontrado(s)</summary><div style="margin-top:6px;padding:8px;background:#fff;border-radius:6px;max-height:120px;overflow-y:auto">${notFoundEmails.map(e => `<div>${escHtml(e)}</div>`).join('')}</div></details>`
     : '';
-  preview.innerHTML = `<div class="import-progress" style="background:${notFound > 0 ? '#ffebe6' : 'var(--primary-light)'};color:${notFound > 0 ? 'var(--danger)' : 'var(--primary-dark)'}">
-    ✅ ${ok} colaborador${ok !== 1 ? 'es' : ''} atualizado${ok !== 1 ? 's' : ''}${notFound > 0 ? ` · ⚠️ ${notFound} e-mail${notFound !== 1 ? 's' : ''} não encontrado${notFound !== 1 ? 's' : ''} (inativo ou inexistente)` : ''}
-  </div>${notFoundList}`;
+  const duplicatedList = duplicatedEmails.length
+    ? `<details style="margin-top:8px;font-size:12px"><summary style="cursor:pointer;color:var(--warning)">Ver ${duplicatedEmails.length} colaborador(es) ignorado(s) por já ter(em) esses pontos</summary><div style="margin-top:6px;padding:8px;background:#fff;border-radius:6px;max-height:120px;overflow-y:auto">${duplicatedEmails.map(e => `<div>${escHtml(e)}</div>`).join('')}</div></details>`
+    : '';
+  const hasIssue = notFound > 0 || duplicated > 0;
+  preview.innerHTML = `<div class="import-progress" style="background:${hasIssue ? '#ffebe6' : 'var(--primary-light)'};color:${hasIssue ? 'var(--danger)' : 'var(--primary-dark)'}">
+    ✅ ${ok} colaborador${ok !== 1 ? 'es' : ''} atualizado${ok !== 1 ? 's' : ''}${duplicated > 0 ? ` · ⏭️ ${duplicated} ignorado${duplicated !== 1 ? 's' : ''} (já tinham pontos por essa descrição)` : ''}${notFound > 0 ? ` · ⚠️ ${notFound} e-mail${notFound !== 1 ? 's' : ''} não encontrado${notFound !== 1 ? 's' : ''} (inativo ou inexistente)` : ''}
+  </div>${duplicatedList}${notFoundList}`;
   btn.textContent = 'Fechar';
   btn.disabled = false;
   btn.onclick = () => { closeModal(); loadEmps(); };
