@@ -313,6 +313,21 @@
   </div>
 </div>
 
+<!-- ════════════════ MANUTENÇÃO (colaboradores) ════════════════ -->
+<div id="maint-page" style="display:none; position:fixed; inset:0; background:linear-gradient(135deg,#102740 0%,#1F3C59 50%,#17324D 100%); z-index:9998; align-items:center; justify-content:center; padding:20px;">
+  <div class="login-box" style="max-width:440px; text-align:center;">
+    <div style="font-size:52px; margin-bottom:8px;">🛠️</div>
+    <h1 style="font-size:22px; font-weight:700; color:var(--text); margin-bottom:10px;">Estamos em manutenção</h1>
+    <p style="font-size:14px; color:var(--muted); line-height:1.6; margin-bottom:22px;">
+      O <strong>Conexa Pontos</strong> está passando por atualizações para trazer novidades para você.
+      Em breve a plataforma estará disponível novamente. 💙
+    </p>
+    <button class="btn btn-primary btn-full" onclick="location.reload()">🔄 Tentar novamente</button>
+    <button class="btn btn-ghost btn-full" style="margin-top:8px;" onclick="doSignOut()">🚪 Sair</button>
+    <p class="login-hint" style="margin-top:14px;">Dúvidas? Fale com o time de Gente & Cultura.</p>
+  </div>
+</div>
+
 <!-- ════════════════ APP ════════════════ -->
 <div id="app">
 
@@ -367,6 +382,9 @@
         <div class="nav-link" data-view="solicitacoes" onclick="goTo('solicitacoes')">
           <span class="icon">✅</span> Solicitações <span id="badgeSolic" style="display:none; background:#EF4465; color:#fff; border-radius:20px; font-size:11px; padding:1px 7px; margin-left:4px;"></span>
         </div>
+        <div class="nav-link" onclick="openMaintModal()">
+          <span class="icon">🛠️</span> <span id="maintNavLabel">Manutenção: desligada</span>
+        </div>
       </div>
     </nav>
     <div class="sidebar-footer">
@@ -383,6 +401,10 @@
 
   <!-- MAIN CONTENT -->
   <main id="main">
+    <div id="maintBanner" style="display:none; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; background:#FFF4E5; border:1px solid #FFB547; color:#8A4B00; border-radius:10px; padding:10px 16px; margin-bottom:18px; font-size:14px;">
+      <span>🛠️ <strong>Modo manutenção ligado</strong> — colaboradores estão vendo a tela de manutenção. Só administradores acessam a plataforma.</span>
+      <button class="btn btn-ghost btn-sm" onclick="openMaintModal()">Desligar</button>
+    </div>
 
     <!-- ── VIEW: HOME ── -->
     <div class="view active" id="view-home">
@@ -814,6 +836,15 @@ async function bootUser(user) {
       await sb.auth.signOut();
       return;
     }
+    // Modo manutenção: colaboradores veem a tela de manutenção; admins entram normalmente
+    if (p.role !== 'admin' && await isMaintenanceOn()) {
+      clearTimeout(_initTimeout);
+      sessionStorage.removeItem('cp_boot_retry');
+      document.getElementById('login-page').style.display = 'none';
+      document.getElementById('app').style.display = 'none';
+      document.getElementById('maint-page').style.display = 'flex';
+      return;
+    }
     curUser = user;
     curProfile = p;
     document.getElementById('uAva').textContent = p.name.charAt(0).toUpperCase();
@@ -828,9 +859,62 @@ async function bootUser(user) {
     goTo('home');
     setTimeout(() => carregarBadgeSolic(), 1500);
     setTimeout(() => loadNotifBadge(), 2000);
+    if (p.role === 'admin') refreshMaintUI();
+    else {
+      // Colaborador com a plataforma já aberta: se a manutenção for ligada, bloqueia em até 1 minuto
+      setInterval(async () => {
+        if (await isMaintenanceOn()) {
+          document.getElementById('app').style.display = 'none';
+          document.getElementById('maint-page').style.display = 'flex';
+        }
+      }, 60000);
+    }
   } finally {
     _booting = false;
   }
+}
+
+// ═══════════════════════════════════════════════
+// MODO MANUTENÇÃO
+// ═══════════════════════════════════════════════
+let _maintOn = false;
+
+async function isMaintenanceOn() {
+  try {
+    const { data } = await sb.from('settings').select('value').eq('key', 'maintenance_mode').maybeSingle();
+    if (!data) return false;
+    return JSON.parse(data.value) === true;
+  } catch { return false; }
+}
+
+async function refreshMaintUI() {
+  _maintOn = await isMaintenanceOn();
+  const banner = document.getElementById('maintBanner');
+  const label  = document.getElementById('maintNavLabel');
+  if (banner) banner.style.display = _maintOn ? 'flex' : 'none';
+  if (label)  label.textContent = _maintOn ? 'Manutenção: LIGADA' : 'Manutenção: desligada';
+}
+
+function openMaintModal() {
+  const ligar = !_maintOn;
+  openModal(`<div class="modal-title">🛠️ Modo Manutenção</div>
+    <p style="font-size:14px;color:var(--muted);line-height:1.6;margin-bottom:16px">
+      ${ligar
+        ? 'Ao <strong>ligar</strong>, colaboradores que entrarem na plataforma verão uma tela de <strong>"Estamos em manutenção"</strong> e não terão acesso ao conteúdo. Administradores continuam acessando normalmente.'
+        : 'Ao <strong>desligar</strong>, a plataforma volta a ficar disponível para todos os colaboradores.'}
+    </p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn ${ligar ? 'btn-danger' : 'btn-primary'}" onclick="setMaintenance(${ligar})">${ligar ? '🛠️ Ligar manutenção' : '✅ Desligar manutenção'}</button>
+    </div>`);
+}
+
+async function setMaintenance(on) {
+  const ok = await savePolicySetting('maintenance_mode', on);
+  if (!ok) return;
+  closeModal();
+  toast(on ? '🛠️ Modo manutenção ligado — colaboradores verão a tela de manutenção.' : '✅ Modo manutenção desligado — plataforma liberada para todos.');
+  refreshMaintUI();
 }
 
 function showLogin() {
@@ -839,6 +923,7 @@ function showLogin() {
   document.getElementById('login-page').style.display = 'flex';
   document.getElementById('app').style.display = 'none';
   document.getElementById('setpass-page').style.display = 'none';
+  document.getElementById('maint-page').style.display = 'none';
   // Garante que o botão de login nunca fique travado
   const btn = document.getElementById('btnLogin');
   if (btn) { btn.disabled = false; btn.textContent = 'Entrar'; }
