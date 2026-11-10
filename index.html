@@ -1769,7 +1769,10 @@ function admProductCard(p, idx, total) {
   const downBtn = idx < total - 1
     ? `<button class="btn btn-ghost btn-sm" title="Mover para baixo" onclick="moveProd(${idx},1)">▼</button>`
     : `<button class="btn btn-ghost btn-sm" disabled style="opacity:.3">▼</button>`;
-  return `<div class="product-card">
+  const toggleBtn = p.is_active
+    ? `<button class="btn btn-ghost btn-sm" style="flex:1;color:var(--warning);border-color:var(--warning)" title="Esconde do catálogo dos colaboradores" onclick="toggleProductActive('${p.id}',false)">🚫 Desativar</button>`
+    : `<button class="btn btn-ghost btn-sm" style="flex:1;color:var(--success);border-color:var(--success)" title="Volta a aparecer no catálogo" onclick="toggleProductActive('${p.id}',true)">✅ Ativar</button>`;
+  return `<div class="product-card" style="${!p.is_active ? 'opacity:.6' : ''}">
     <div class="product-thumb">${imgHtml}</div>
     <div class="product-body">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
@@ -1785,6 +1788,7 @@ function admProductCard(p, idx, total) {
           <button class="btn btn-ghost btn-sm" style="flex:1" onclick="openEditProductModal('${p.id}','${escJs(p.name)}','${escJs(p.description||'')}',${p.points_cost},'${escJs(p.image_url||'')}',${p.is_active},${p.stock_quantity ?? 'null'},${p.delivery_days ?? 'null'})">✏️ Editar</button>
           <button class="btn btn-danger btn-sm" style="flex:1" onclick="confirmDeleteProduct('${p.id}','${escJs(p.name)}')">🗑️</button>
         </div>
+        <div class="flex gap-2">${toggleBtn}</div>
       </div>
     </div>
   </div>`;
@@ -1947,6 +1951,13 @@ async function saveProduct(id) {
   }).eq('id', id);
   if (error) { toast('Erro ao salvar.', 'err'); btn.disabled = false; btn.textContent = 'Salvar'; return; }
   closeModal(); toast('✅ Prêmio atualizado!');
+  loadAdmCat();
+}
+
+async function toggleProductActive(id, active) {
+  const { error } = await sb.from('products').update({ is_active: active }).eq('id', id);
+  if (error) { toast('Erro ao atualizar o prêmio.', 'err'); return; }
+  toast(active ? '✅ Prêmio ativado — já aparece no catálogo.' : '🚫 Prêmio desativado — não aparece mais no catálogo.');
   loadAdmCat();
 }
 
