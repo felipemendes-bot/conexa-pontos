@@ -527,7 +527,7 @@
       <div class="page-header">
         <div>
           <div class="page-title">📄 Política do Programa</div>
-          <div class="page-subtitle">Desafio de Saúde Conexa 2026 — 13 de julho a 4 de setembro</div>
+          <div class="page-subtitle">Programa Conexa Reconhece — Reconhecimento e Recompensas</div>
         </div>
       </div>
       <div class="policy-content" id="policyContent">
@@ -1630,7 +1630,7 @@ document.addEventListener('click', (e) => {
 });
 
 async function reenviarNotifPontos(email, name, balance) {
-  await sendPointsEmail(email, name, balance, 'Seus pontos acumulados no Desafio de Saúde Conexa 2026', balance);
+  await sendPointsEmail(email, name, balance, 'Seus pontos acumulados no Conexa Pontos', balance);
   toast(`📧 E-mail enviado para ${name}!`);
 }
 
@@ -1663,7 +1663,7 @@ async function runNotifyAll(emps) {
     const emp = emps[i];
     preview.innerHTML = `<div class="import-progress">⏳ Enviando ${i + 1} de ${emps.length}: ${escHtml(emp.name || emp.email)}…</div>`;
     try {
-      await sendPointsEmail(emp.email, emp.name || emp.email, emp.points_balance, 'Seus pontos acumulados no Desafio de Saúde Conexa 2026', emp.points_balance);
+      await sendPointsEmail(emp.email, emp.name || emp.email, emp.points_balance, 'Seus pontos acumulados no Conexa Pontos', emp.points_balance);
       sent++;
     } catch(e) {}
     await new Promise(r => setTimeout(r, 300));
